@@ -79,14 +79,11 @@ def intersect(df):
     leve que rodar a query pesada direto no banco."""
     gdf = geopandas.GeoDataFrame(
         df.drop(columns=["DadosSHP"]),
-        geometry=geopandas.GeoSeries.from_wkt(df["DadosSHP"]),
+        # o SQL já manda a geometria em binário (STAsBinary/WKB) em vez de texto
+        # (STAsText/WKT): é bem mais compacto de trafegar e muito mais rápido de
+        # parsear (WKB não precisa converter cada coordenada de texto pra float)
+        geometry=geopandas.GeoSeries.from_wkb(df["DadosSHP"]),
     ).reset_index().rename(columns={"index": "id_geom"})
-
-    gdf["Rotulo"] = (
-        "F:" + gdf["fazenda"].astype(str)
-        + "B:" + gdf["Bloco"].astype(str)
-        + "T:" + gdf["Talhao"].astype(str)
-    )
 
     pares = geopandas.sjoin(gdf, gdf, predicate="intersects", lsuffix="1", rsuffix="2")
 
@@ -117,6 +114,11 @@ def intersect(df):
     # equivalente ao WHERE PercentualSobreposicaoGeral <> 0.00 and > 0.20 do SQL
     pares = pares[pares["PercentualSobreposicaoGeral"] > 1.0]
 
+    # geometria de cada talhão (formato GeoJSON), pra desenhar as duas
+    # geometrias na tela quando o usuário selecionar um par na interface
+    pares["Geometria1"] = geom_1.loc[pares.index].apply(lambda g: g.__geo_interface__)
+    pares["Geometria2"] = geom_2.loc[pares.index].apply(lambda g: g.__geo_interface__)
+
     colunas = {
         "AnoSafra_1": "AnoSafra1", "AnoSafra_2": "AnoSafra2",
         "fazenda_1": "Fazenda1", "fazenda_2": "Fazenda2",
@@ -133,7 +135,7 @@ def intersect(df):
     }
     pares = pares.rename(columns=colunas)
     colunas_finais = list(colunas.values()) + [
-         "PercentualSobreposicaoGeral"
+        "PercentualSobreposicaoGeral", "Geometria1", "Geometria2",
     ]
     pares = pares[colunas_finais].sort_values(["Fazenda1", "Bloco1", "Talhao1"]).reset_index(drop=True)
 
@@ -148,7 +150,10 @@ def salvar_excel(pares, pasta_saida="output"):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     caminho_arquivo = pasta_saida / f"geometrias_duplicadas_{timestamp}.xlsx"
 
-    pares.to_excel(caminho_arquivo, index=False, sheet_name="Duplicados")
+    # as colunas de geometria (GeoJSON) são só pra tela; não fazem sentido numa célula do Excel
+    colunas_geometria = ["Geometria1", "Geometria2"]
+    pares_para_excel = pares.drop(columns=colunas_geometria, errors="ignore")
+    pares_para_excel.to_excel(caminho_arquivo, index=False, sheet_name="Duplicados")
 
     return caminho_arquivo
 

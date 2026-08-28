@@ -1,0 +1,130 @@
+:root {
+  /* paleta cana-de-açúcar: verde da folha/colmo + dourado do açúcar/melaço */
+  --text: #5b6350;
+  --text-h: #1f2b17;
+  --bg: #fffdf7;
+  --border: #ddd6ba;
+  --code-bg: #f2ecd3;
+  --accent: #3f7d32;
+  --accent-bg: rgba(63, 125, 50, 0.12);
+  --accent-border: rgba(63, 125, 50, 0.5);
+  --acucar: #a97119;
+  --acucar-bg: rgba(169, 113, 25, 0.12);
+  --social-bg: rgba(242, 236, 211, 0.5);
+  --shadow:
+    rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+
+  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --heading: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --mono: ui-monospace, Consolas, monospace;
+
+  font: 18px/145% var(--sans);
+  letter-spacing: 0.18px;
+  color-scheme: light dark;
+  color: var(--text);
+  background: var(--bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  @media (max-width: 1024px) {
+    font-size: 16px;
+  }
+}
+
+/* segue o tema do sistema, a menos que o botão de tema tenha fixado um valor */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --text: #b7c1a6;
+    --text-h: #f3ecd6;
+    --bg: #141810;
+    --border: #38402a;
+    --code-bg: #1e2416;
+    --accent: #8fd67a;
+    --accent-bg: rgba(143, 214, 122, 0.15);
+    --accent-border: rgba(143, 214, 122, 0.5);
+    --acucar: #e0a938;
+    --acucar-bg: rgba(224, 169, 56, 0.15);
+    --social-bg: rgba(30, 36, 22, 0.5);
+    --shadow:
+      rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
+  }
+
+  #social .button-icon {
+    filter: invert(1) brightness(2);
+  }
+}
+
+/* tema fixado manualmente pelo botão de alternância, em qualquer sistema */
+:root[data-theme='dark'] {
+  --text: #b7c1a6;
+  --text-h: #f3ecd6;
+  --bg: #141810;
+  --border: #38402a;
+  --code-bg: #1e2416;
+  --accent: #8fd67a;
+  --accent-bg: rgba(143, 214, 122, 0.15);
+  --accent-border: rgba(143, 214, 122, 0.5);
+  --acucar: #e0a938;
+  --acucar-bg: rgba(224, 169, 56, 0.15);
+  --social-bg: rgba(30, 36, 22, 0.5);
+  --shadow:
+    rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
+}
+
+body {
+  margin: 0;
+}
+
+#root {
+  width: 100%;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+
+h1,
+h2 {
+  font-family: var(--heading);
+  font-weight: 500;
+  color: var(--text-h);
+}
+
+h1 {
+  font-size: 56px;
+  letter-spacing: -1.68px;
+  margin: 32px 0;
+  @media (max-width: 1024px) {
+    font-size: 36px;
+    margin: 20px 0;
+  }
+}
+h2 {
+  font-size: 24px;
+  line-height: 118%;
+  letter-spacing: -0.24px;
+  margin: 0 0 8px;
+  @media (max-width: 1024px) {
+    font-size: 20px;
+  }
+}
+p {
+  margin: 0;
+}
+
+code,
+.counter {
+  font-family: var(--mono);
+  display: inline-flex;
+  border-radius: 4px;
+  color: var(--text-h);
+}
+
+code {
+  font-size: 15px;
+  line-height: 135%;
+  padding: 4px 8px;
+  background: var(--code-bg);
+}
