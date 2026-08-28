@@ -1,5 +1,6 @@
 .env
 output/*.html
+output/*.xlsx
 !output/.gitkeep
 __pycache__/
 *.pyc
