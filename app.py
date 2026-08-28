@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 from pathlib import Path
 
 import pyodbc
@@ -114,17 +115,15 @@ def intersect(df):
     pares["PercentualSobreposicaoGeral"] = area_intersecao / area_uniao * 100
 
     # equivalente ao WHERE PercentualSobreposicaoGeral <> 0.00 and > 0.20 do SQL
-    pares = pares[pares["PercentualSobreposicaoGeral"] > 0.20]
+    pares = pares[pares["PercentualSobreposicaoGeral"] > 1.0]
 
     colunas = {
-        "Rotulo_1": "Rotulo1", "Rotulo_2": "Rotulo2",
         "AnoSafra_1": "AnoSafra1", "AnoSafra_2": "AnoSafra2",
         "fazenda_1": "Fazenda1", "fazenda_2": "Fazenda2",
         "Bloco_1": "Bloco1", "Bloco_2": "Bloco2",
         "Talhao_1": "Talhao1", "Talhao_2": "Talhao2",
         "Corte_1": "Corte1", "Corte_2": "Corte2",
         "IDTalhao_1": "IDTalhao1", "IDTalhao_2": "IDTalhao2",
-        "Vinculo_1": "Vinculo1", "Vinculo_2": "Vinculo2",
         "RazaoSocial_1": "Usina1", "RazaoSocial_2": "Usina2",
         "Reforma_1": "Reforma1", "Reforma_2": "Reforma2",
         "TomboSafra_1": "TomboSafra1", "TomboSafra_2": "TomboSafra2",
@@ -134,11 +133,24 @@ def intersect(df):
     }
     pares = pares.rename(columns=colunas)
     colunas_finais = list(colunas.values()) + [
-        "PercentualSobreposto1", "PercentualSobreposto2", "PercentualSobreposicaoGeral",
+         "PercentualSobreposicaoGeral"
     ]
     pares = pares[colunas_finais].sort_values(["Fazenda1", "Bloco1", "Talhao1"]).reset_index(drop=True)
 
     return pares
+
+
+def salvar_excel(pares, pasta_saida="output"):
+    """Salva os pares de talhões duplicados/sobrepostos em um arquivo Excel."""
+    pasta_saida = Path(pasta_saida)
+    pasta_saida.mkdir(parents=True, exist_ok=True)
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    caminho_arquivo = pasta_saida / f"geometrias_duplicadas_{timestamp}.xlsx"
+
+    pares.to_excel(caminho_arquivo, index=False, sheet_name="Duplicados")
+
+    return caminho_arquivo
 
 
 def main():
@@ -149,6 +161,9 @@ def main():
     pares = intersect(df)
     print(f"{len(pares)} par(es) de talhões com sobreposição de área > 0,20% encontrados")
     print(pares)
+
+    caminho_arquivo = salvar_excel(pares)
+    print(f"Arquivo salvo em: {caminho_arquivo}")
 
 
 if __name__ == "__main__":
