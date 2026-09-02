@@ -29,7 +29,7 @@ $prompt = @"
 Depois de terminar a extração e confirmar que cache/<cliente>.json foi
 regravado pros 9 clientes, faça mais isso, nessa ordem:
 
-1. Rode `venv/Scripts/python scripts/build_dashboard.py` (gera
+1. Rode venv/Scripts/python scripts/build_dashboard.py (gera
    dist/dashboard.html com os dados novos, geometria simplificada pra
    visualização).
 2. Use a ferramenta Artifact com action "read" e url "$artifactUrl" pra
