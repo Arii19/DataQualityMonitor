@@ -130,6 +130,38 @@ nada sozinho.
 > rode o uvicorn numa porta livre e ajuste `API_URL` em
 > [frontend/src/App.jsx](frontend/src/App.jsx).
 
+## Dashboard remoto (Artifact, somente leitura)
+
+Pra colegas de outras cidades/fora da rede local acessarem os mesmos dados
+sem precisar de VPN, backend rodando ou porta aberta: existe um segundo
+front-end, [scripts/dashboard_template.html](scripts/dashboard_template.html),
+publicado como Claude Artifact (link fixo, privado, compartilhável):
+
+- Mesma experiência da tela local (barra de clientes, filtro, tabela,
+  modal de geometria sobreposta, exportar Excel), **sem** o envio de
+  e-mail — isso continua só na tela local.
+- Sem backend: todo o dado (metadados + geometria, já *simplificada* pra
+  visualização — `shapely.simplify` + arredondamento de coordenadas, só
+  nesse artifact) fica embutido no próprio HTML. Os 9 clientes somados
+  ficam por volta de 2.7MB simplificados (30MB+ na resolução original),
+  bem abaixo do limite de 16MB de um artifact.
+- **Atualizado 1x/dia**, automaticamente: [scripts/atualizar_diario.ps1](scripts/atualizar_diario.ps1)
+  — a mesma tarefa agendada do Windows que já fazia a extração diária —
+  agora também roda [scripts/build_dashboard.py](scripts/build_dashboard.py)
+  (regenera `dist/dashboard.html` a partir do `cache/<cliente>.json` mais
+  recente) e republica esse HTML no artifact **sempre no mesmo link**
+  (republicar não troca a URL).
+
+Gerar/republicar manualmente (fora do agendamento diário):
+
+```powershell
+.\venv\Scripts\python scripts\build_dashboard.py   # gera dist/dashboard.html
+```
+
+e peça pro Claude Code publicar `dist/dashboard.html` no artifact existente
+(ele precisa da URL — está registrada como `$artifactUrl` no topo de
+`scripts/atualizar_diario.ps1`).
+
 ## API
 
 Toda rota abaixo de `/api/duplicados*` e `/api/pipeline/rodar` exige o

@@ -69,21 +69,6 @@ def extract(caminho_sql, params=None):
 
 
 def classificar_motivo(pares):
-    """Classifica a causa provável de cada par sobreposto, pra facilitar a
-    triagem na tela: a maior parte das sobreposições não é erro de desenho de
-    polígono. Ordem de prioridade (a primeira condição que bater vence):
-
-    1. Mesma fazenda + mesmo código de talhão: é o mesmo talhão físico
-       aparecendo duas vezes porque o ciclo/safra anterior não foi fechado
-       (DataFinalSafra) antes do novo corte começar.
-    2. Mesmo nome de fazenda com código de fazenda diferente: a fazenda foi
-       cadastrada em duplicidade, arrastando todos os talhões dela.
-    3. Mesma fazenda, códigos de talhão diferentes, quase 100% sobrepostos:
-       provável cadastro duplicado do talhão sob um código novo.
-    4. Mesma fazenda, sobreposição parcial: erro de digitalização do limite
-       entre talhões vizinhos.
-    5. Fazendas diferentes: sobreposição de limite entre fazendas distintas.
-    """
     mesma_fazenda = pares["Fazenda1"] == pares["Fazenda2"]
     mesmo_talhao = pares["Talhao1"] == pares["Talhao2"]
     mesmo_nome_fazenda = pares["NomeFazenda_1"] == pares["NomeFazenda_2"]
@@ -98,8 +83,8 @@ def classificar_motivo(pares):
     motivos = [
         "Mesmo talhão físico (ciclo/safra anterior não foi fechado)",
         "Fazenda cadastrada com código duplicado",
-        "Códigos de talhão diferentes quase 100% sobrepostos (possível cadastro duplicado)",
-        "Talhões vizinhos com sobreposição parcial de limite (possível erro de digitalização)",
+        "Códigos de talhão diferentes quase 100% sobrepostos",
+        "Talhões vizinhos com sobreposição parcial de limite",
     ]
     return np.select(condicoes, motivos, default="Fazendas diferentes com sobreposição de limite")
 

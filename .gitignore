@@ -5,6 +5,7 @@ output/*.xlsx
 raw/
 cache/*.json
 !cache/.gitkeep
+dist/
 logs/
 __pycache__/
 *.pyc

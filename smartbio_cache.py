@@ -103,7 +103,14 @@ def calcular_sobreposicoes(df, cliente):
     pares["PercentualSobreposto1"] = area_intersecao / area_1 * 100
     pares["PercentualSobreposto2"] = area_intersecao / area_2 * 100
     pares["PercentualSobreposicaoGeral"] = area_intersecao / area_uniao * 100
-    pares = pares[pares["PercentualSobreposicaoGeral"] > 1.0].reset_index(drop=True)
+
+    # equivalente ao WHERE PercentualSobreposicaoGeral <> 0.00 and > 0.20 do SQL
+    # (mesmo filtro de app.py.intersect()). NÃO faz .reset_index(drop=True) aqui:
+    # geom_1/geom_2 ainda estão indexados com os rótulos antigos (0..N-1, com
+    # buracos onde linhas foram descartadas acima), e o .loc[pares.index] logo
+    # abaixo depende de pares manter esses mesmos rótulos — resetar aqui já
+    # causou um bug grave de geometria trocada entre talhões (ver histórico).
+    pares = pares[pares["PercentualSobreposicaoGeral"] > 1.0]
 
     # lista, não .apply numa GeoSeries: ver comentário equivalente em
     # app.py.intersect() — evita que o geopandas confunda esses dicts com

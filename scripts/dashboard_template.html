@@ -1,0 +1,688 @@
+<title>Geometrias Duplicadas</title>
+<style>
+  :root {
+    /* paleta cana-de-açúcar: verde da folha/colmo + dourado do açúcar/melaço —
+       os mesmos tokens de frontend/src/index.css, pra manter a mesma
+       identidade visual entre a tela local (React) e este dashboard. */
+    --text: #5b6350;
+    --text-h: #1f2b17;
+    --bg: #fffdf7;
+    --border: #ddd6ba;
+    --code-bg: #f2ecd3;
+    --accent: #3f7d32;
+    --accent-bg: rgba(63, 125, 50, 0.12);
+    --accent-border: rgba(63, 125, 50, 0.5);
+    --acucar: #a97119;
+    --acucar-bg: rgba(169, 113, 25, 0.12);
+    --erro: #ae3b31;
+    --erro-bg: rgba(174, 59, 49, 0.1);
+    --erro-border: rgba(174, 59, 49, 0.4);
+    --on-accent: #fff;
+    --shadow: rgba(0, 0, 0, 0.1) 0 10px 15px -3px, rgba(0, 0, 0, 0.05) 0 4px 6px -2px;
+    --sans: system-ui, "Segoe UI", Roboto, sans-serif;
+    --mono: ui-monospace, Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --text: #b7c1a6;
+      --text-h: #f3ecd6;
+      --bg: #141810;
+      --border: #38402a;
+      --code-bg: #1e2416;
+      --accent: #8fd67a;
+      --accent-bg: rgba(143, 214, 122, 0.15);
+      --accent-border: rgba(143, 214, 122, 0.5);
+      --acucar: #e0a938;
+      --acucar-bg: rgba(224, 169, 56, 0.15);
+      --erro: #e08277;
+      --erro-bg: rgba(224, 130, 119, 0.12);
+      --erro-border: rgba(224, 130, 119, 0.4);
+      --on-accent: #0c1408;
+      --shadow: rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --text: #b7c1a6;
+    --text-h: #f3ecd6;
+    --bg: #141810;
+    --border: #38402a;
+    --code-bg: #1e2416;
+    --accent: #8fd67a;
+    --accent-bg: rgba(143, 214, 122, 0.15);
+    --accent-border: rgba(143, 214, 122, 0.5);
+    --acucar: #e0a938;
+    --acucar-bg: rgba(224, 169, 56, 0.15);
+    --erro: #e08277;
+    --erro-bg: rgba(224, 130, 119, 0.12);
+    --erro-border: rgba(224, 130, 119, 0.4);
+    --on-accent: #0c1408;
+    --shadow: rgba(0, 0, 0, 0.4) 0 10px 15px -3px, rgba(0, 0, 0, 0.25) 0 4px 6px -2px;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.5 var(--sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2 { color: var(--text-h); font-weight: 600; margin: 0; }
+  p { margin: 0; }
+  button { font: inherit; }
+  :focus-visible { outline: 2px solid var(--accent-border); outline-offset: 2px; }
+
+  .layout { display: flex; align-items: stretch; min-height: 100vh; }
+
+  .barra-clientes {
+    flex: 0 0 230px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 20px 12px;
+    border-right: 1px solid var(--border);
+    background: var(--code-bg);
+  }
+
+  .marca {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 0 6px 16px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .marca-emoji { font-size: 20px; line-height: 1; }
+  .marca-texto { font-size: 13px; font-weight: 600; color: var(--text-h); letter-spacing: 0.02em; }
+
+  .barra-titulo {
+    margin: 0 0 6px 6px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text);
+  }
+
+  .lista-clientes { display: flex; flex-direction: column; gap: 3px; overflow-y: auto; }
+
+  .cliente-botao {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    width: 100%;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    padding: 7px 10px;
+    color: var(--text-h);
+    text-align: left;
+    cursor: pointer;
+  }
+  .cliente-botao:hover { background: var(--accent-bg); }
+  .cliente-botao.ativo { background: var(--accent-bg); border-color: var(--accent-border); font-weight: 600; }
+  .cliente-nome { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  .cliente-meta { font-size: 11px; color: var(--text); font-variant-numeric: tabular-nums; }
+
+  .rodape-barra {
+    margin-top: auto;
+    padding: 10px 6px 0;
+    font-size: 11px;
+    color: var(--text);
+    border-top: 1px solid var(--border);
+  }
+
+  .pagina { flex: 1 1 auto; min-width: 0; padding: 32px 28px 64px; }
+
+  .cabecalho {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+  }
+  .cabecalho h1 { font-size: 28px; letter-spacing: -0.4px; }
+  .cliente-atual { color: var(--accent); font-weight: 500; }
+  .subtitulo { color: var(--text); margin-top: 4px; }
+
+  .selo-leitura {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--acucar);
+    background: var(--acucar-bg);
+    border-radius: 999px;
+    padding: 3px 10px;
+    margin-top: 10px;
+  }
+
+  .acoes-topo { display: flex; gap: 10px; }
+
+  button.botao-primario, button.botao-secundario {
+    border-radius: 8px;
+    padding: 9px 16px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: opacity 0.15s ease;
+  }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  .botao-primario { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+  .botao-secundario { background: transparent; border-color: var(--border); color: var(--text-h); }
+  .botao-tema { padding: 9px 12px; font-size: 16px; line-height: 1; }
+
+  .filtros { display: flex; flex-wrap: wrap; gap: 10px; margin: 22px 0 16px; }
+  .filtros input {
+    font: inherit;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text-h);
+    min-width: 160px;
+  }
+  .filtros input:focus-visible { outline-offset: 1px; }
+
+  .barra-status {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    font-size: 13px;
+    color: var(--text);
+    margin-bottom: 12px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .erro {
+    color: var(--erro);
+    background: var(--erro-bg);
+    border: 1px solid var(--erro-border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-bottom: 16px;
+  }
+
+  .tabela-wrapper { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  thead th {
+    text-align: left;
+    padding: 10px 14px;
+    background: var(--code-bg);
+    color: var(--text-h);
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+  }
+  tbody td { padding: 9px 14px; border-top: 1px solid var(--border); white-space: nowrap; }
+  tbody tr:hover { background: var(--accent-bg); }
+  .linha-clicavel { cursor: pointer; }
+  .vs { color: var(--text); padding: 0 4px; }
+  .percentual { font-family: var(--mono); font-weight: 600; color: var(--acucar); font-variant-numeric: tabular-nums; }
+  .motivo { white-space: normal; min-width: 240px; color: var(--text); }
+  .vazio { text-align: center; padding: 36px 16px; color: var(--text); white-space: normal; }
+
+  .modal-fundo {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    z-index: 10;
+  }
+  .modal-fundo.aberto { display: flex; }
+  .modal-caixa {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 520px;
+    width: 100%;
+    box-shadow: var(--shadow);
+  }
+  .modal-cabecalho { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
+  .modal-cabecalho h2 { font-size: 19px; }
+  .modal-info { font-size: 13.5px; color: var(--text); margin-bottom: 16px; }
+  .svg-geometrias { display: block; margin: 0 auto; background: var(--code-bg); border: 1px solid var(--border); border-radius: 8px; }
+  .geom { stroke-width: 2; fill-opacity: 0.45; }
+  .geom-1 { fill: var(--accent); stroke: var(--accent); }
+  .geom-2 { fill: var(--acucar); stroke: var(--acucar); }
+  .sem-geometria { fill: var(--text); font-size: 13px; }
+  .legenda { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-top: 12px; }
+  .legenda-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+    color: var(--text);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: 999px;
+    padding: 5px 12px;
+    cursor: pointer;
+  }
+  .legenda-item:hover { border-color: var(--border); }
+  .legenda-item.ativo { background: var(--accent-bg); border-color: var(--accent-border); color: var(--text-h); font-weight: 600; }
+  .cor { display: inline-block; width: 11px; height: 11px; border-radius: 3px; }
+  .cor-1 { background: var(--accent); }
+  .cor-2 { background: var(--acucar); }
+  .cor-sobreposicao { background: color-mix(in srgb, var(--accent) 50%, var(--acucar) 50%); }
+</style>
+
+<div class="layout">
+  <aside class="barra-clientes">
+    <div class="marca">
+      <span class="marca-emoji">🌾</span>
+      <span class="marca-texto">Data Quality Monitor</span>
+    </div>
+    <p class="barra-titulo">Clientes</p>
+    <nav class="lista-clientes" id="lista-clientes"></nav>
+    <p class="rodape-barra" id="rodape-barra"></p>
+  </aside>
+
+  <div class="pagina">
+    <header class="cabecalho">
+      <div>
+        <h1>Geometrias Duplicadas <span class="cliente-atual" id="titulo-cliente"></span></h1>
+        <p class="subtitulo">Talhões com sobreposição de área acima do limite configurado</p>
+      </div>
+      <div class="acoes-topo">
+        <button id="botao-tema" class="botao-secundario botao-tema" title="Alternar tema" aria-label="Alternar tema">🌙</button>
+        <button id="botao-excel" class="botao-secundario">Exportar Excel</button>
+      </div>
+    </header>
+
+    <form class="filtros" id="form-filtros">
+      <input type="text" id="filtro-fazenda" placeholder="Fazenda" />
+      <input type="text" id="filtro-usina" placeholder="Usina" />
+      <input type="text" id="filtro-safra" placeholder="Safra" />
+      <input type="number" step="0.01" min="0" max="100" id="filtro-percentual" placeholder="% sobreposição mínima" />
+      <button type="submit" class="botao-primario">Filtrar</button>
+      <button type="button" id="botao-limpar" class="botao-secundario">Limpar</button>
+    </form>
+
+    <div class="barra-status" id="barra-status"></div>
+    <p class="erro" id="caixa-erro" hidden></p>
+
+    <div class="tabela-wrapper">
+      <table>
+        <thead>
+          <tr>
+            <th>Safra</th><th>Fazenda</th><th>Bloco</th><th>Talhão</th><th>ID Talhão</th>
+            <th>Corte</th><th>Usina</th><th>% Sobreposição</th><th>Motivo</th>
+          </tr>
+        </thead>
+        <tbody id="corpo-tabela"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="modal-fundo" id="modal-fundo">
+  <div class="modal-caixa" onclick="event.stopPropagation()">
+    <div class="modal-cabecalho">
+      <h2>Sobreposição de geometrias</h2>
+      <button class="botao-secundario" id="botao-fechar-modal">Fechar</button>
+    </div>
+    <p class="modal-info" id="modal-info"></p>
+    <svg width="420" height="420" viewBox="0 0 420 420" class="svg-geometrias" id="svg-geometrias"></svg>
+    <div class="legenda">
+      <button type="button" class="legenda-item" data-modo="talhao1"><i class="cor cor-1"></i> Talhão 1</button>
+      <button type="button" class="legenda-item" data-modo="talhao2"><i class="cor cor-2"></i> Talhão 2</button>
+      <button type="button" class="legenda-item ativo" data-modo="ambos"><i class="cor cor-sobreposicao"></i> Área sobreposta</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script id="dados-json" type="application/json">__DADOS_JSON__</script>
+<script>
+(function () {
+  "use strict";
+
+  var DADOS = JSON.parse(document.getElementById("dados-json").textContent);
+  var TAMANHO = 420;
+  var PADDING = 24;
+
+  var FILTROS_INICIAIS = { fazenda: "", usina: "", safra: "", percentualMinimo: "" };
+  var estado = {
+    clienteAtivo: null,
+    filtros: Object.assign({}, FILTROS_INICIAIS),
+    parSelecionado: null,
+    modoModal: "ambos",
+  };
+
+  // ---------- tema ----------
+  function temaInicial() {
+    try {
+      var salvo = localStorage.getItem("dqm-tema");
+      if (salvo === "light" || salvo === "dark") return salvo;
+    } catch (e) { /* localStorage indisponível — cai pro padrão do sistema */ }
+    return null;
+  }
+  function aplicarTema(tema) {
+    if (tema) {
+      document.documentElement.setAttribute("data-theme", tema);
+    } else {
+      document.documentElement.removeAttribute("data-theme");
+    }
+    var escuro = tema === "dark" || (!tema && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    document.getElementById("botao-tema").textContent = escuro ? "☀️" : "🌙";
+  }
+  (function () {
+    var salvo = temaInicial();
+    aplicarTema(salvo);
+    document.getElementById("botao-tema").addEventListener("click", function () {
+      var atual = document.documentElement.getAttribute("data-theme");
+      var escuroAgora = atual === "dark" || (!atual && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+      var novo = escuroAgora ? "light" : "dark";
+      aplicarTema(novo);
+      try { localStorage.setItem("dqm-tema", novo); } catch (e) { /* ignora */ }
+    });
+  })();
+
+  // ---------- utils ----------
+  function formatarPercentual(v) {
+    if (v === null || v === undefined) return "-";
+    return Number(v).toFixed(2) + "%";
+  }
+  function tempoRelativo(iso) {
+    if (!iso) return null;
+    var diffMs = Date.now() - new Date(iso).getTime();
+    var min = Math.round(diffMs / 60000);
+    if (min < 1) return "agora mesmo";
+    if (min < 60) return "há " + min + " min";
+    var h = Math.round(min / 60);
+    if (h < 24) return "há " + h + "h";
+    return "há " + Math.round(h / 24) + "d";
+  }
+  function escapar(texto) {
+    var div = document.createElement("div");
+    div.textContent = texto === null || texto === undefined ? "" : String(texto);
+    return div.innerHTML;
+  }
+
+  // ---------- barra lateral ----------
+  function renderizarClientes() {
+    var lista = document.getElementById("lista-clientes");
+    lista.innerHTML = "";
+    DADOS.clientes.forEach(function (c) {
+      var botao = document.createElement("button");
+      botao.className = "cliente-botao" + (c.cliente === estado.clienteAtivo ? " ativo" : "");
+      botao.title = c.cliente;
+      var meta = c.total === null ? "sem dados" : c.total + " par(es)";
+      if (c.geradoEm) meta += " · " + tempoRelativo(c.geradoEm);
+      botao.innerHTML = '<span class="cliente-nome">' + escapar(c.cliente) + '</span><span class="cliente-meta">' + escapar(meta) + "</span>";
+      botao.addEventListener("click", function () { selecionarCliente(c.cliente); });
+      lista.appendChild(botao);
+    });
+
+    var rodape = document.getElementById("rodape-barra");
+    rodape.textContent = "Publicado em " + new Date(DADOS.publicadoEm).toLocaleString("pt-BR");
+  }
+
+  function selecionarCliente(cliente) {
+    if (cliente === estado.clienteAtivo) return;
+    estado.clienteAtivo = cliente;
+    estado.filtros = Object.assign({}, FILTROS_INICIAIS);
+    document.getElementById("filtro-fazenda").value = "";
+    document.getElementById("filtro-usina").value = "";
+    document.getElementById("filtro-safra").value = "";
+    document.getElementById("filtro-percentual").value = "";
+    renderizarClientes();
+    renderizarPagina();
+  }
+
+  // ---------- filtro + tabela ----------
+  function itensFiltrados() {
+    var todos = DADOS.pares[estado.clienteAtivo] || [];
+    var f = estado.filtros;
+    return todos.filter(function (item) {
+      if (f.fazenda) {
+        var alvoF = f.fazenda.toLowerCase();
+        if (!String(item.Fazenda1 || "").toLowerCase().includes(alvoF) && !String(item.Fazenda2 || "").toLowerCase().includes(alvoF)) return false;
+      }
+      if (f.usina) {
+        var alvoU = f.usina.toLowerCase();
+        if (!String(item.Usina1 || "").toLowerCase().includes(alvoU) && !String(item.Usina2 || "").toLowerCase().includes(alvoU)) return false;
+      }
+      if (f.safra) {
+        var alvoS = f.safra.toLowerCase();
+        if (!String(item.AnoSafra1 || "").toLowerCase().includes(alvoS) && !String(item.AnoSafra2 || "").toLowerCase().includes(alvoS)) return false;
+      }
+      if (f.percentualMinimo !== "" && f.percentualMinimo !== null && f.percentualMinimo !== undefined) {
+        if ((item.PercentualSobreposicaoGeral || 0) < Number(f.percentualMinimo)) return false;
+      }
+      return true;
+    });
+  }
+
+  function renderizarPagina() {
+    var meta = DADOS.clientes.find(function (c) { return c.cliente === estado.clienteAtivo; }) || {};
+    document.getElementById("titulo-cliente").textContent = estado.clienteAtivo ? "— " + estado.clienteAtivo : "";
+
+    var itens = itensFiltrados();
+    var corpo = document.getElementById("corpo-tabela");
+    corpo.innerHTML = "";
+
+    if (itens.length === 0) {
+      var tr = document.createElement("tr");
+      var td = document.createElement("td");
+      td.colSpan = 9;
+      td.className = "vazio";
+      td.textContent = meta.total === 0
+        ? "Nenhum par de talhões sobrepostos nesse cliente."
+        : "Nenhum par encontrado com os filtros atuais.";
+      tr.appendChild(td);
+      corpo.appendChild(tr);
+    } else {
+      itens.forEach(function (par) {
+        var tr = document.createElement("tr");
+        tr.className = "linha-clicavel";
+        tr.innerHTML =
+          "<td>" + escapar(par.AnoSafra1) + '<span class="vs">×</span>' + escapar(par.AnoSafra2) + "</td>" +
+          "<td>" + escapar(par.Fazenda1) + '<span class="vs">×</span>' + escapar(par.Fazenda2) + "</td>" +
+          "<td>" + escapar(par.Bloco1) + '<span class="vs">×</span>' + escapar(par.Bloco2) + "</td>" +
+          "<td>" + escapar(par.Talhao1) + '<span class="vs">×</span>' + escapar(par.Talhao2) + "</td>" +
+          "<td>" + escapar(par.IDTalhao1) + '<span class="vs">×</span>' + escapar(par.IDTalhao2) + "</td>" +
+          "<td>" + escapar(par.Corte1) + '<span class="vs">×</span>' + escapar(par.Corte2) + "</td>" +
+          "<td>" + escapar(par.Usina1) + '<span class="vs">×</span>' + escapar(par.Usina2) + "</td>" +
+          '<td class="percentual">' + formatarPercentual(par.PercentualSobreposicaoGeral) + "</td>" +
+          '<td class="motivo">' + escapar(par.Motivo) + "</td>";
+        tr.addEventListener("click", function () { abrirModal(par); });
+        corpo.appendChild(tr);
+      });
+    }
+
+    var status = document.getElementById("barra-status");
+    status.innerHTML = "";
+    var spanTotal = document.createElement("span");
+    spanTotal.textContent = itens.length + " par(es) encontrado(s)";
+    status.appendChild(spanTotal);
+    if (meta.geradoEm) {
+      var spanData = document.createElement("span");
+      spanData.textContent = "Dados extraídos do smartbio em: " + new Date(meta.geradoEm).toLocaleString("pt-BR");
+      status.appendChild(spanData);
+    }
+
+    document.getElementById("botao-excel").disabled = itens.length === 0;
+  }
+
+  // ---------- filtros: eventos ----------
+  document.getElementById("form-filtros").addEventListener("submit", function (e) {
+    e.preventDefault();
+    estado.filtros = {
+      fazenda: document.getElementById("filtro-fazenda").value,
+      usina: document.getElementById("filtro-usina").value,
+      safra: document.getElementById("filtro-safra").value,
+      percentualMinimo: document.getElementById("filtro-percentual").value,
+    };
+    renderizarPagina();
+  });
+  document.getElementById("botao-limpar").addEventListener("click", function () {
+    estado.filtros = Object.assign({}, FILTROS_INICIAIS);
+    document.getElementById("filtro-fazenda").value = "";
+    document.getElementById("filtro-usina").value = "";
+    document.getElementById("filtro-safra").value = "";
+    document.getElementById("filtro-percentual").value = "";
+    renderizarPagina();
+  });
+
+  // ---------- exportar excel ----------
+  document.getElementById("botao-excel").addEventListener("click", async function () {
+    var caixaErro = document.getElementById("caixa-erro");
+    caixaErro.hidden = true;
+    try {
+      var downloads = (window.claude && (await window.claude.use("downloads"))) || null;
+      if (!downloads) {
+        caixaErro.textContent = "Exportação indisponível neste visualizador.";
+        caixaErro.hidden = false;
+        return;
+      }
+      var linhas = itensFiltrados().map(function (p) {
+        return {
+          Safra1: p.AnoSafra1, Safra2: p.AnoSafra2,
+          Fazenda1: p.Fazenda1, Fazenda2: p.Fazenda2,
+          Bloco1: p.Bloco1, Bloco2: p.Bloco2,
+          Talhao1: p.Talhao1, Talhao2: p.Talhao2,
+          IDTalhao1: p.IDTalhao1, IDTalhao2: p.IDTalhao2,
+          Corte1: p.Corte1, Corte2: p.Corte2,
+          Usina1: p.Usina1, Usina2: p.Usina2,
+          PercentualSobreposicaoGeral: p.PercentualSobreposicaoGeral,
+          Motivo: p.Motivo,
+        };
+      });
+      var planilha = XLSX.utils.json_to_sheet(linhas);
+      var livro = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(livro, planilha, (estado.clienteAtivo || "Duplicados").slice(0, 31));
+      var buffer = XLSX.write(livro, { type: "array", bookType: "xlsx" });
+      await downloads.save({
+        filename: (estado.clienteAtivo || "duplicados") + "_duplicados.xlsx",
+        data: buffer,
+      });
+    } catch (e) {
+      if (e && e.code === "declined") return;
+      caixaErro.textContent = "Não foi possível gerar o Excel: " + (e && e.message ? e.message : e);
+      caixaErro.hidden = false;
+    }
+  });
+
+  // ---------- modal de geometria ----------
+  function extrairAneis(geometria) {
+    if (!geometria) return [];
+    if (geometria.type === "Polygon") return geometria.coordinates;
+    if (geometria.type === "MultiPolygon") return geometria.coordinates.flat();
+    return [];
+  }
+  function calcularBBox(gruposDeAneis) {
+    var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    gruposDeAneis.forEach(function (aneis) {
+      aneis.forEach(function (anel) {
+        anel.forEach(function (ponto) {
+          var x = ponto[0], y = ponto[1];
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        });
+      });
+    });
+    return { minX: minX, minY: minY, maxX: maxX, maxY: maxY };
+  }
+  function construirPath(aneis, bbox) {
+    var largura = bbox.maxX - bbox.minX || 1;
+    var altura = bbox.maxY - bbox.minY || 1;
+    var area = TAMANHO - PADDING * 2;
+    var escala = Math.min(area / largura, area / altura);
+    var deslocX = (TAMANHO - largura * escala) / 2;
+    var deslocY = (TAMANHO - altura * escala) / 2;
+    function projetar(ponto) {
+      var px = (ponto[0] - bbox.minX) * escala + deslocX;
+      var py = TAMANHO - ((ponto[1] - bbox.minY) * escala + deslocY);
+      return px.toFixed(2) + "," + py.toFixed(2);
+    }
+    return aneis.map(function (anel) { return "M" + anel.map(projetar).join("L") + "Z"; }).join(" ");
+  }
+
+  function desenharModal() {
+    var par = estado.parSelecionado;
+    if (!par) return;
+    document.getElementById("modal-info").innerHTML =
+      "<strong>Talhão 1:</strong> " + escapar(par.Fazenda1) + "/" + escapar(par.Bloco1) + "/" + escapar(par.Talhao1) +
+      "&nbsp;&nbsp;×&nbsp;&nbsp;<strong>Talhão 2:</strong> " + escapar(par.Fazenda2) + "/" + escapar(par.Bloco2) + "/" + escapar(par.Talhao2) +
+      "&nbsp;&nbsp;·&nbsp;&nbsp;<strong>Sobreposição:</strong> " + Number(par.PercentualSobreposicaoGeral).toFixed(2) + "%";
+
+    var aneis1 = extrairAneis(par.Geometria1);
+    var aneis2 = extrairAneis(par.Geometria2);
+    var temDesenho = aneis1.length > 0 || aneis2.length > 0;
+    var svg = document.getElementById("svg-geometrias");
+    svg.innerHTML = "";
+
+    if (!temDesenho) {
+      var texto = document.createElementNS("http://www.w3.org/2000/svg", "text");
+      texto.setAttribute("x", TAMANHO / 2);
+      texto.setAttribute("y", TAMANHO / 2);
+      texto.setAttribute("text-anchor", "middle");
+      texto.setAttribute("class", "sem-geometria");
+      texto.textContent = "Sem geometria pra desenhar";
+      svg.appendChild(texto);
+      return;
+    }
+
+    var bbox = calcularBBox([aneis1, aneis2].filter(function (a) { return a.length; }));
+    var mostrar1 = estado.modoModal === "ambos" || estado.modoModal === "talhao1";
+    var mostrar2 = estado.modoModal === "ambos" || estado.modoModal === "talhao2";
+
+    if (mostrar1 && aneis1.length) {
+      var p1 = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      p1.setAttribute("d", construirPath(aneis1, bbox));
+      p1.setAttribute("fill-rule", "evenodd");
+      p1.setAttribute("class", "geom geom-1");
+      svg.appendChild(p1);
+    }
+    if (mostrar2 && aneis2.length) {
+      var p2 = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      p2.setAttribute("d", construirPath(aneis2, bbox));
+      p2.setAttribute("fill-rule", "evenodd");
+      p2.setAttribute("class", "geom geom-2");
+      svg.appendChild(p2);
+    }
+  }
+
+  function abrirModal(par) {
+    estado.parSelecionado = par;
+    estado.modoModal = "ambos";
+    document.querySelectorAll(".legenda-item").forEach(function (b) { b.classList.toggle("ativo", b.dataset.modo === "ambos"); });
+    document.getElementById("modal-fundo").classList.add("aberto");
+    desenharModal();
+  }
+  function fecharModal() {
+    estado.parSelecionado = null;
+    document.getElementById("modal-fundo").classList.remove("aberto");
+  }
+  document.getElementById("botao-fechar-modal").addEventListener("click", fecharModal);
+  document.getElementById("modal-fundo").addEventListener("click", fecharModal);
+  document.querySelectorAll(".legenda-item").forEach(function (botao) {
+    botao.addEventListener("click", function () {
+      estado.modoModal = botao.dataset.modo;
+      document.querySelectorAll(".legenda-item").forEach(function (b) { b.classList.toggle("ativo", b === botao); });
+      desenharModal();
+    });
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") fecharModal();
+  });
+
+  // ---------- inicialização ----------
+  estado.clienteAtivo = (DADOS.clientes.find(function (c) { return c.total; }) || DADOS.clientes[0] || {}).cliente || null;
+  renderizarClientes();
+  renderizarPagina();
+})();
+</script>
