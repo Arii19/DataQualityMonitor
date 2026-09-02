@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
 from app import extract, intersect, salvar_excel
+from email_utils import enviar_email
 
 app = FastAPI(title="Data Quality Monitor - Geometrias Duplicadas")
 
@@ -143,3 +144,21 @@ def baixar_excel():
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         filename=Path(arquivo).name,
     )
+
+
+@app.post("/api/duplicados/email")
+def enviar_por_email():
+    """Envia o último Excel gerado por e-mail, via Microsoft Graph."""
+    arquivo = _cache["ultimo_arquivo"]
+    if not arquivo or not Path(arquivo).exists():
+        raise HTTPException(
+            status_code=404,
+            detail="Nenhum arquivo gerado ainda. Rode o pipeline primeiro.",
+        )
+
+    try:
+        enviar_email(arquivo)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    return {"enviado": True, "arquivo": Path(arquivo).name}

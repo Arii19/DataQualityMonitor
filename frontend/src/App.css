@@ -98,6 +98,11 @@ button:disabled {
   color: var(--text);
 }
 
+.mensagem-sucesso {
+  color: var(--accent);
+  font-weight: 600;
+}
+
 .erro {
   color: #d1483f;
   background: rgba(209, 72, 63, 0.1);

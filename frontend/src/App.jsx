@@ -58,6 +58,8 @@ export default function App() {
   const [ultimaExecucao, setUltimaExecucao] = useState(null)
   const [carregando, setCarregando] = useState(false)
   const [rodandoPipeline, setRodandoPipeline] = useState(false)
+  const [enviandoEmail, setEnviandoEmail] = useState(false)
+  const [mensagemEmail, setMensagemEmail] = useState(null)
   const [erro, setErro] = useState(null)
   const [parSelecionado, setParSelecionado] = useState(null)
   const [geometria, setGeometria] = useState(null)
@@ -125,6 +127,25 @@ export default function App() {
     window.open(`${API_URL}/api/duplicados/excel`, '_blank')
   }
 
+  async function handleEnviarEmail() {
+    setEnviandoEmail(true)
+    setErro(null)
+    setMensagemEmail(null)
+    try {
+      const resposta = await fetch(`${API_URL}/api/duplicados/email`, { method: 'POST' })
+      if (!resposta.ok) {
+        const detalhe = await resposta.json().catch(() => null)
+        throw new Error(detalhe?.detail || `Falha ao enviar e-mail (HTTP ${resposta.status})`)
+      }
+      const dados = await resposta.json()
+      setMensagemEmail(`E-mail enviado (${dados.arquivo})`)
+    } catch (e) {
+      setErro(e.message)
+    } finally {
+      setEnviandoEmail(false)
+    }
+  }
+
   async function handleSelecionarPar(par) {
     setParSelecionado(par)
     setGeometria(null)
@@ -170,6 +191,9 @@ export default function App() {
           </button>
           <button onClick={handleExportarExcel} disabled={!total} className="botao-secundario">
             Exportar Excel
+          </button>
+          <button onClick={handleEnviarEmail} disabled={!total || enviandoEmail} className="botao-secundario">
+            {enviandoEmail ? 'Enviando…' : 'Enviar por e-mail'}
           </button>
           <button onClick={handleRodarPipeline} disabled={rodandoPipeline} className="botao-primario">
             {rodandoPipeline ? 'Rodando…' : 'Rodar pipeline'}
@@ -219,6 +243,7 @@ export default function App() {
             Última execução do pipeline: {new Date(ultimaExecucao).toLocaleString('pt-BR')}
           </span>
         )}
+        {mensagemEmail && <span className="mensagem-sucesso">{mensagemEmail}</span>}
       </div>
 
       {erro && <p className="erro">{erro}</p>}
