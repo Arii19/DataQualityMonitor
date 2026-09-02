@@ -1,4 +1,4 @@
- select GM.IDGeometriaDeMapa, f.Codigo as fazenda, t.Bloco, t.Codigo AS Talhao,
+ select GM.IDGeometriaDeMapa, f.Codigo as fazenda, f.Nome as NomeFazenda, t.Bloco, t.Codigo AS Talhao,
     H.IDHistDetalhado, h.AnoSafra, gm.DataInclusao, gm.IDSafra, h.DataColheita,u.RazaoSocial, h.TomboSafra, h.Corte, gm.DadosSHP.STAsBinary() AS DadosSHP, gm.IDTalhao,
     tp.descricao as Vinculo, h.Reforma, h.SiglaExterna, h.DataPlantio
  from GeometriaDeMapa gm inner join Talhao t on t.IDTalhao =  gm.IDTalhao

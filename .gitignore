@@ -2,6 +2,10 @@
 output/*.html
 output/*.xlsx
 !output/.gitkeep
+raw/
+cache/*.json
+!cache/.gitkeep
+logs/
 __pycache__/
 *.pyc
 .venv/

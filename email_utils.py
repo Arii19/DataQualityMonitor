@@ -62,15 +62,21 @@ def _anexo_em_base64(caminho_arquivo):
 
 
 def enviar_email(caminho_arquivo, assunto=None, corpo=None, destinatarios=None):
-    """Envia um arquivo por e-mail via Microsoft Graph. Usa remetente/assunto/
-    destinatários do .env por padrão; qualquer um pode ser sobrescrito por
-    parâmetro."""
+    """Envia um ou mais arquivos por e-mail via Microsoft Graph, todos num só
+    e-mail (um anexo por arquivo). Aceita um caminho só ou uma lista de
+    caminhos — é o que permite mandar vários clientes juntos. Usa
+    remetente/assunto/destinatários do .env por padrão; qualquer um pode ser
+    sobrescrito por parâmetro."""
     if not EMAIL_SENDER:
         raise ValueError("EMAIL_SENDER não foi encontrado no .env")
 
     destinatarios = destinatarios or EMAIL_RECIPIENTS
     if not destinatarios:
         raise ValueError("Nenhum destinatário configurado (EMAIL_RECIPIENTS no .env)")
+
+    caminhos = [caminho_arquivo] if isinstance(caminho_arquivo, (str, Path)) else list(caminho_arquivo)
+    if not caminhos:
+        raise ValueError("Nenhum arquivo pra anexar")
 
     token = _obter_token()
 
@@ -79,12 +85,12 @@ def enviar_email(caminho_arquivo, assunto=None, corpo=None, destinatarios=None):
             "subject": assunto or EMAIL_SUBJECT,
             "body": {
                 "contentType": "Text",
-                "content": corpo or "Segue em anexo o relatório gerado pelo Data Quality Monitor.",
+                "content": corpo or "Segue em anexo o relatório das geometrias duplicadas.",
             },
             "toRecipients": [
                 {"emailAddress": {"address": destinatario}} for destinatario in destinatarios
             ],
-            "attachments": [_anexo_em_base64(caminho_arquivo)],
+            "attachments": [_anexo_em_base64(caminho) for caminho in caminhos],
         },
         "saveToSentItems": "true",
     }

@@ -1,7 +1,149 @@
+.layout {
+  display: flex;
+  align-items: stretch;
+  min-height: 100vh;
+}
+
+.barra-clientes {
+  flex: 0 0 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px 10px;
+  border-right: 1px solid var(--border);
+  background: var(--code-bg);
+  transition: flex-basis 0.15s ease;
+}
+
+.barra-clientes.recolhida {
+  flex-basis: 56px;
+  padding: 16px 6px;
+  align-items: center;
+}
+
+.botao-recolher {
+  align-self: flex-end;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-h);
+  padding: 4px 10px;
+  margin-bottom: 8px;
+}
+
+.barra-clientes.recolhida .botao-recolher {
+  align-self: center;
+}
+
+.barra-titulo {
+  margin: 0 0 4px 6px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text);
+}
+
+.lista-clientes {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  overflow-y: auto;
+}
+
+.barra-titulo-linha {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin: 0 0 4px 6px;
+}
+
+.barra-titulo-linha .barra-titulo {
+  margin: 0;
+}
+
+.limpar-selecao {
+  background: transparent;
+  border: none;
+  padding: 0;
+  font-size: 11px;
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.cliente-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 2px 4px;
+}
+
+.cliente-checkbox {
+  flex: 0 0 auto;
+  cursor: pointer;
+}
+
+.cliente-botao {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-width: 0;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 8px;
+  color: var(--text-h);
+  text-align: left;
+}
+
+.barra-clientes.recolhida .cliente-item {
+  justify-content: center;
+  padding: 2px 0;
+}
+
+.barra-clientes.recolhida .cliente-botao {
+  align-items: center;
+  padding: 6px 4px;
+}
+
+.cliente-item:hover {
+  background: var(--accent-bg);
+}
+
+.cliente-item.ativo {
+  background: var(--accent-bg);
+  border-color: var(--accent-border);
+  font-weight: 600;
+}
+
+.cliente-nome {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.cliente-meta {
+  font-size: 11px;
+  color: var(--text);
+}
+
+.cliente-atual {
+  color: var(--accent);
+  font-weight: 500;
+}
+
 .pagina {
   /* sem largura máxima fixa: usa o espaço disponível na tela, então a tabela
      (que tende a crescer conforme mais colunas são adicionadas) tem chance de
      caber sem cortar dado nem precisar rolar horizontalmente */
+  flex: 1 1 auto;
+  min-width: 0;
   width: 100%;
   margin: 0 auto;
   padding: 32px 24px 64px;
@@ -157,6 +299,12 @@ tbody tr:hover {
   font-family: var(--mono);
   font-weight: 600;
   color: var(--acucar);
+}
+
+.motivo {
+  white-space: normal;
+  min-width: 260px;
+  color: var(--text);
 }
 
 .vazio {
