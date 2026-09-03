@@ -24,9 +24,22 @@ nome exato antes de seguir.
    ```sql
    SELECT c.IDTalhao, c.CodigoFazenda, c.NomeFazenda, c.Bloco, c.CodigoTalhao, c.Corte, c.Safra, c.AreaTotal, c.Reforma, c.Bloqueio, c.NomeUsina_Empresa_Unidade, c.Ativo, g.GeoJson
    FROM vw_bree_full.CadastroDeAreas c
-   INNER JOIN vw_bree_full.Geometria g ON g.IDTalhao = c.IDTalhao
+   INNER JOIN vw_bree_full.Geometria g ON g.IDTalhao = c.IDTalhao AND g.idSafra = c.IDSafra
    WHERE c.DataInicialSafra <= GETDATE() AND c.DataFinalSafra > GETDATE() AND c.Bloqueio = 0
    ```
+
+   O `AND g.idSafra = c.IDSafra` é essencial — resolve de vez o problema
+   documentado em docs/especificacao_view_geometria_por_safra.md (a view
+   `Geometria` podia devolver geometria de uma safra antiga pra um talhão
+   sem desenho pra safra ativa). Antes disso as duas colunas de safra
+   (`IDSafra` em `CadastroDeAreas`, `idSafra` em `Geometria`) não existiam;
+   agora que existem dos dois lados, o join garante a geometria certa
+   diretamente, sem precisar de nenhuma heurística por área ou por
+   "safra mais comum do lote" (tentamos isso e reverteu — ver histórico do
+   projeto e comentário em `_filtrar_por_safra_ativa` em
+   `smartbio_cache.py`: vários clientes têm múltiplas safras/cortes
+   legitimamente ativos ao mesmo tempo, então esse tipo de heurística some
+   com dado real). **Não omita esse `AND` do join.**
 
    Isso devolve um `download_url` (expira em ~600s — baixe logo em seguida).
    Clientes grandes (Atvos, Cocal, IPE, CMAA, SantaAdelia) passam de 100MB;

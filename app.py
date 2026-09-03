@@ -1,71 +1,8 @@
-import os
 from datetime import datetime
 from pathlib import Path
 
-import pyodbc
 import numpy as np
-import pandas as pd
-from dotenv import load_dotenv
 import geopandas
-
-
-load_dotenv()
-
-
-DB_SERVER = os.getenv("DB_SERVER")
-DB_DATABASE = os.getenv("DB_DATABASE")
-DB_DRIVER = os.getenv("DB_DRIVER", "ODBC Driver 18 for SQL Server")
-DB_TRUSTED_CONNECTION = os.getenv("DB_TRUSTED_CONNECTION", "yes")
-DB_USER = os.getenv("DB_USER")
-DB_PASSWORD = os.getenv("DB_PASSWORD")
-DB_TRUST_SERVER_CERTIFICATE = os.getenv("DB_TRUST_SERVER_CERTIFICATE", "yes")
-
-
-def conect():
-    if not DB_SERVER:
-        raise ValueError("DB_SERVER não foi encontrado no .env")
-
-    if not DB_DATABASE:
-        raise ValueError("DB_DATABASE não foi encontrado no .env")
-
-    conn_str = (
-        f"DRIVER={{{DB_DRIVER}}};"
-        f"SERVER={DB_SERVER};"
-        f"DATABASE={DB_DATABASE};"
-        f"TrustServerCertificate={DB_TRUST_SERVER_CERTIFICATE};"
-    )
-
-    if DB_TRUSTED_CONNECTION.lower() == "yes":
-        conn_str += "Trusted_Connection=yes;"
-    else:
-        if not DB_USER or not DB_PASSWORD:
-            raise ValueError(
-                "DB_USER e DB_PASSWORD são obrigatórios quando DB_TRUSTED_CONNECTION não é yes"
-            )
-
-        conn_str += (
-            f"UID={DB_USER};"
-            f"PWD={DB_PASSWORD};"
-        )
-
-    return pyodbc.connect(conn_str)
-
-
-def extract(caminho_sql, params=None):
-    caminho_sql = Path(caminho_sql)
-
-    if not caminho_sql.exists():
-        raise FileNotFoundError(f"Arquivo SQL não encontrado: {caminho_sql}")
-
-    query = caminho_sql.read_text(encoding="utf-8")
-
-    conn = conect()
-
-    try:
-        df = pd.read_sql(query, conn, params=params)
-        return df
-    finally:
-        conn.close()
 
 
 def classificar_motivo(pares):
@@ -184,20 +121,3 @@ def salvar_excel(pares, pasta_saida="output"):
     pares_para_excel.to_excel(caminho_arquivo, index=False, sheet_name="Duplicados")
 
     return caminho_arquivo
-
-
-def main():
-    print("Iniciando consulta...")
-    df = extract(Path("Queries") / "geometrias.sql")
-    print(df)
-
-    pares = intersect(df)
-    print(f"{len(pares)} par(es) de talhões com sobreposição de área > 0,20% encontrados")
-    print(pares)
-
-    caminho_arquivo = salvar_excel(pares)
-    print(f"Arquivo salvo em: {caminho_arquivo}")
-
-
-if __name__ == "__main__":
-    main()

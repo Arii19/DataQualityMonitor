@@ -1,10 +1,11 @@
 """Gera o cache de sobreposições de geometria a partir de dados extraídos do
 smartbio (MCP), um cliente por vez.
 
-Diferente de app.py (que consulta o SQL Server via pyodbc num banco só), este
-script processa CSVs já extraídos do smartbio para cada cliente — porque hoje
-só uma sessão do Claude com o MCP consegue rodar a consulta contra o
-smartbio; o backend (api.py) não tem essa credencial. O fluxo é:
+Este script processa CSVs já extraídos do smartbio para cada cliente —
+porque hoje só uma sessão do Claude com o MCP consegue rodar a consulta
+contra o smartbio; o backend (api.py) não tem essa credencial. app.py
+mantém só as funções reaproveitadas aqui (intersect/classificar_motivo),
+sem nenhuma conexão de banco própria. O fluxo é:
 
     1. Alguém pede pro Claude "atualizar o cliente X" (ou "todos").
     2. O Claude consulta vw_bree_full.CadastroDeAreas + Geometria pro cliente
@@ -20,6 +21,7 @@ argumentos pra processar todos os clientes que tiverem uma pasta em raw/.
 """
 
 import json
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -27,6 +29,7 @@ from pathlib import Path
 import geopandas
 import numpy as np
 import pandas as pd
+from shapely import wkb
 from shapely.geometry import shape
 
 from app import classificar_motivo
@@ -38,18 +41,103 @@ OUTPUT_DIR = BASE_DIR / "output"
 
 CLIENTES = ["Atvos", "SantaAdelia", "Cevasa", "CMAA", "Guaira", "GQQ", "JPA", "Cocal", "IPE"]
 
+# Histórico: a view vw_bree_full.Geometria não amarrava geometria por safra
+# — podia devolver "uma" geometria por IDTalhao de uma safra/corte anterior,
+# mesmo quando o talhão não tinha geometria pra safra ativa (ver
+# docs/especificacao_view_geometria_por_safra.md). _filtrar_geometria_suspeita()
+# comparava a área oficial (AreaTotal) com a área calculada do GeoJson como
+# mitigação pra esse problema — mas causava falsos negativos (ex.: GQQ,
+# talhão 758: AreaTotal=0 e era uma duplicidade real, seria descartada por
+# engano). Com o join por IDTalhao+IDSafra corrigido na extração (a
+# geometria certa da safra ativa já vem garantida na origem), essa
+# mitigação ficou desnecessária e só arriscada — está desativada de
+# propósito, mesmo padrão de _filtrar_por_safra_ativa() logo abaixo.
+
+
+# caracteres de controle que o Excel/openpyxl recusa em célula de texto —
+# já apareceu em NomeFazenda vindo do smartbio (dado sujo na origem, não é
+# erro nosso), então limpamos antes de qualquer to_excel.
+_CARACTERES_ILEGAIS_EXCEL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
+
+
+def _sanitizar_para_excel(df):
+    df = df.copy()
+    for col in df.columns:
+        if df[col].map(lambda v: isinstance(v, str)).any():
+            df[col] = df[col].map(
+                lambda v: _CARACTERES_ILEGAIS_EXCEL.sub("", v) if isinstance(v, str) else v
+            )
+    return df
+
 
 def _parse_geojson(valor):
+    """Aceita tanto GeoJSON de texto (extração normal via smartbio) quanto
+    WKB em hex (extração corrigida direto do banco, via
+    Queries/geometria_correta_por_safra.sql — o SQL Server não tem
+    STAsGeoJSON() nativo, então essa consulta manda
+    CONVERT(..., DadosSHP.STAsBinary(), 2), que cai aqui como uma string só
+    de dígitos hexadecimais)."""
+    if not isinstance(valor, str):
+        return None
+    texto = valor.strip()
+    if texto and all(c in "0123456789abcdefABCDEF" for c in texto) and len(texto) % 2 == 0:
+        try:
+            return wkb.loads(bytes.fromhex(texto))
+        except Exception:
+            return None
     try:
         return shape(json.loads(valor))
     except (TypeError, ValueError, json.JSONDecodeError):
         return None
 
 
-def carregar_bruto(pasta_cliente):
+def _filtrar_por_safra_ativa(df):
+    """DESATIVADA — não exclui nada, só devolve df intacto (mantida pra não
+    quebrar a assinatura usada em carregar_bruto).
+
+    Tentativa anterior: vw_bree_full.Geometria agora expõe idSafra, e a
+    ideia era comparar com a moda (valor mais frequente) do lote pra achar
+    geometria de safra errada — funcionou pro caso isolado dos talhões
+    674/1037 do GQQ, mas se mostrou **insegura em geral**: vários clientes
+    (Cocal, GQQ) têm DUAS populações de idSafra grandes e comparáveis ao
+    mesmo tempo (cortes/ciclos diferentes legitimamente ativos em paralelo,
+    não uma maioria "certa" com poucos outliers "errados"). Testado na
+    Cocal: idSafra 38 (10.927 talhões) e 37 (10.197) — a moda excluiria
+    quase metade dos talhões, incluindo muitos genuinamente ativos. No GQQ,
+    a moda (idSafra=14, 652 talhões) teria excluído o idSafra=15 (523
+    talhões) por inteiro — mas o talhão 6027 (idSafra=15) é confirmadamente
+    ativo (validado direto no banco). Não achamos nenhum agrupamento nos
+    dados (nem por Corte) que separe com segurança "safra ativa" de "safra
+    velha" só com o que a extração smartbio traz — precisaria do join
+    estrito por HistDetalhado (só possível com acesso direto ao banco, ver
+    Queries/geometria_correta_por_safra.sql), que não muda por cliente.
+    Retorna (df, df vazio) sempre, até existir um critério seguro."""
+    return df, df.iloc[0:0].copy()
+
+
+def _filtrar_geometria_suspeita(df):
+    """DESATIVADA — não exclui/sinaliza nada, só devolve (df, vazio, vazio)
+    (mantida pra não quebrar a assinatura usada em carregar_bruto).
+
+    Comparava a área do GeoJson com a AreaTotal oficial pra achar geometria
+    provavelmente de outra safra/corte — mitigação pro problema descrito no
+    comentário de _filtrar_por_safra_ativa() (a view de geometria não
+    amarrava por safra). Causava falso negativo: no GQQ, o talhão 758 tinha
+    AreaTotal=0 (não preenchida) mas geometria correta de uma duplicidade
+    real — teria sido descartado por engano pela regra de "AreaTotal
+    zerada". Com o join por IDTalhao+IDSafra corrigido na extração, a
+    geometria certa já vem garantida na origem — essa comparação por área
+    ficou redundante e só oferece risco de derrubar duplicidade real de
+    novo, então foi desativada."""
+    return df, df.iloc[0:0].copy(), df.iloc[0:0].copy()
+
+
+def carregar_bruto(pasta_cliente, cliente=None):
     """Lê todos os CSVs extraídos do smartbio pra um cliente (pode ser mais
     de um arquivo, se a extração foi feita em partes)."""
-    arquivos = sorted(Path(pasta_cliente).glob("*.csv"))
+    pasta_cliente = Path(pasta_cliente)
+    cliente = cliente or pasta_cliente.name
+    arquivos = sorted(pasta_cliente.glob("*.csv"))
     if not arquivos:
         raise FileNotFoundError(f"Nenhum CSV encontrado em {pasta_cliente}")
 
@@ -69,6 +157,39 @@ def carregar_bruto(pasta_cliente):
     if invalidas:
         print(f"  {invalidas} geometria(s) inválida(s)/vazia(s) descartada(s)")
     df = df[df["geometry"].notna()].reset_index(drop=True)
+
+    df, outra_safra = _filtrar_por_safra_ativa(df)
+    if len(outra_safra):
+        print(
+            f"  {len(outra_safra)} talhão(ões) com geometria de safra diferente da "
+            f"ativa (idSafra não bate com a moda do lote) descartado(s) do cálculo"
+        )
+
+    df, excluidos, sinalizados = _filtrar_geometria_suspeita(df)
+    if len(excluidos):
+        print(
+            f"  {len(excluidos)} talhão(ões) com geometria de outra safra/corte "
+            f"(divergência grande com a AreaTotal oficial) descartado(s) do cálculo"
+        )
+    if len(sinalizados):
+        print(
+            f"  {len(sinalizados)} talhão(ões) com AreaTotal oficial zerada mas com "
+            f"desenho — mantido(s) no cálculo, mas sinalizado(s) pra revisão manual"
+        )
+    if len(outra_safra) or len(excluidos) or len(sinalizados):
+        colunas_relatorio = [
+            c for c in ["IDTalhao", "CodigoFazenda", "NomeFazenda", "Bloco", "CodigoTalhao",
+                        "Corte", "Safra", "idSafra", "AreaTotal", "AreaCalculadaHa", "NomeUsina_Empresa_Unidade"]
+            if c in df.columns or c in outra_safra.columns
+        ]
+        relatorio = pd.concat([
+            outra_safra.reindex(columns=colunas_relatorio).assign(Situacao="Excluído do cálculo (idSafra diferente da ativa)"),
+            excluidos.reindex(columns=colunas_relatorio).assign(Situacao="Excluído do cálculo (divergência de área)"),
+            sinalizados.reindex(columns=colunas_relatorio).assign(Situacao="Sinalizado — revisar manualmente (AreaTotal zerada)"),
+        ], ignore_index=True)
+        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+        _sanitizar_para_excel(relatorio).to_excel(OUTPUT_DIR / f"{cliente}_geometria_suspeita.xlsx", index=False)
+        print(f"  ver output/{cliente}_geometria_suspeita.xlsx")
 
     return df
 
@@ -166,7 +287,7 @@ def salvar_cache(cliente, pares):
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     caminho_excel = OUTPUT_DIR / f"{cliente}_duplicados_{timestamp}.xlsx"
-    pares.drop(columns=["Geometria1", "Geometria2"], errors="ignore").to_excel(
+    _sanitizar_para_excel(pares.drop(columns=["Geometria1", "Geometria2"], errors="ignore")).to_excel(
         caminho_excel, index=False, sheet_name="Duplicados"
     )
 
@@ -176,7 +297,7 @@ def salvar_cache(cliente, pares):
 def processar_cliente(cliente, pasta_raw=None):
     pasta_raw = Path(pasta_raw) if pasta_raw else RAW_DIR / cliente
     print(f"[{cliente}] lendo CSVs de {pasta_raw}...")
-    df = carregar_bruto(pasta_raw)
+    df = carregar_bruto(pasta_raw, cliente=cliente)
     print(f"[{cliente}] {len(df)} talhões válidos, calculando sobreposições...")
     pares = calcular_sobreposicoes(df, cliente)
     caminho_excel = salvar_cache(cliente, pares)
