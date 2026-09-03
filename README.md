@@ -145,18 +145,28 @@ publicado como Claude Artifact (link fixo, privado, compartilhável):
   nesse artifact) fica embutido no próprio HTML. Os 9 clientes somados
   ficam por volta de 2.7MB simplificados (30MB+ na resolução original),
   bem abaixo do limite de 16MB de um artifact.
-- **Atualizado 1x/dia**, automaticamente: [scripts/atualizar_diario.ps1](scripts/atualizar_diario.ps1)
-  — a mesma tarefa agendada do Windows que já fazia a extração diária —
-  agora também roda [scripts/build_dashboard.py](scripts/build_dashboard.py)
-  (regenera `dist/dashboard.html` a partir do `cache/<cliente>.json` mais
-  recente) e republica esse HTML no artifact **sempre no mesmo link**
-  (republicar não troca a URL).
+- **`dist/dashboard.html` é regenerado sozinho, 1x/dia**:
+  [scripts/atualizar_diario.ps1](scripts/atualizar_diario.ps1) — a mesma
+  tarefa agendada do Windows que já fazia a extração diária — agora também
+  roda [scripts/build_dashboard.py](scripts/build_dashboard.py) logo depois
+  de recalcular o cache. Isso é 100% automático, sem depender de nada além
+  do Agendador de Tarefas.
+- **A publicação no link do artifact só acontece dentro de uma conversa do
+  Claude Code** — peça: *"atualiza e republica o dashboard"*. Testamos
+  publicar via script (`scripts/publicar_dashboard.ps1`, rodado direto num
+  terminal comum, sem passar pelo Agendador de Tarefas) e mesmo assim a
+  ferramenta que publica artifacts não ficou disponível — parece só existir
+  dentro do ambiente de uma sessão interativa do Claude Code/claude.ai, não
+  numa chamada `claude` de linha de comando isolada, seja lá quem disparar.
+  Por isso não existe hoje um comando que publique sozinho fora de uma
+  conversa; `scripts/publicar_dashboard.ps1 -Rebuild` só regenera
+  `dist/dashboard.html` no disco (rápido, sem custo), o passo de publicar em
+  si precisa ser pedido aqui. Republicar não muda a URL, só o conteúdo — o
+  pedido leva menos de um minuto.
 
-Gerar/republicar manualmente (fora do agendamento diário):
-
-```powershell
-.\venv\Scripts\python scripts\build_dashboard.py   # gera dist/dashboard.html
-```
+E depois peça pro Claude Code ler e publicar esse arquivo no artifact
+existente (ele precisa da URL — está registrada como comentário no topo de
+`scripts/atualizar_diario.ps1`).
 
 e peça pro Claude Code publicar `dist/dashboard.html` no artifact existente
 (ele precisa da URL — está registrada como `$artifactUrl` no topo de

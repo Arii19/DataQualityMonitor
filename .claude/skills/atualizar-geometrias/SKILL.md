@@ -41,6 +41,15 @@ nome exato antes de seguir.
    independentes no mesmo turno) e ir baixando cada um assim que o
    `download_url` sair, em vez de fazer tudo em série.
 
+   ⚠️ **Já aconteceu de vir com o dado do cliente errado quando disparado em
+   paralelo**: o `download_url` recebido não correspondia ao cliente pedido
+   (veio deslocado — a resposta de um cliente saiu associada ao request de
+   outro). Por isso, **depois de baixar cada CSV, confirme a coluna
+   `_cliente` da primeira linha antes de seguir pro próximo** — se não bater
+   com o cliente esperado, pare e re-extraia aquele cliente sozinho (sem
+   paralelismo) antes de continuar. Não rode `smartbio_cache.py` com um CSV
+   não conferido.
+
 ## Depois de ter os CSVs de todos os clientes pedidos
 
 Rode de uma vez (recalcula sobreposição + Motivo + grava cache/Excel):
