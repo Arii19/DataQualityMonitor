@@ -14,3 +14,8 @@ EMAIL_RECIPIENTS = [
     r.strip() for r in os.getenv("EMAIL_RECIPIENTS", "").split(",") if r.strip()
 ]
 EMAIL_SUBJECT = os.getenv("EMAIL_SUBJECT", "Relatório de Geometrias Duplicadas")
+
+# login usado pra autenticar via Playwright nos relatórios do ManagerVision
+# (mesma conta funciona em todos os clientes/subdomínios smartbreeder.com.br)
+MANAGERVISION_USER = os.getenv("MANAGERVISION_USER")
+MANAGERVISION_PASSWORD = os.getenv("MANAGERVISION_PASSWORD")

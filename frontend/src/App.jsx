@@ -8,6 +8,7 @@ const FILTROS_INICIAIS = {
   fazenda: '',
   usina: '',
   safra: '',
+  talhao: '',
   percentualMinimo: '',
 }
 
@@ -16,6 +17,7 @@ function montarQuery(filtros) {
   if (filtros.fazenda) params.set('fazenda', filtros.fazenda)
   if (filtros.usina) params.set('usina', filtros.usina)
   if (filtros.safra) params.set('safra', filtros.safra)
+  if (filtros.talhao) params.set('talhao', filtros.talhao)
   if (filtros.percentualMinimo) params.set('percentual_minimo', filtros.percentualMinimo)
   return params.toString()
 }
@@ -75,6 +77,11 @@ export default function App() {
   const [rodandoPipeline, setRodandoPipeline] = useState(false)
   const [enviandoEmail, setEnviandoEmail] = useState(false)
   const [mensagemEmail, setMensagemEmail] = useState(null)
+  const [relatorios, setRelatorios] = useState([])
+  const [painelRelatoriosAberto, setPainelRelatoriosAberto] = useState(false)
+  const [relatoriosSelecionados, setRelatoriosSelecionados] = useState(() => new Set())
+  const [enviandoRelatorios, setEnviandoRelatorios] = useState(false)
+  const [mensagemRelatorios, setMensagemRelatorios] = useState(null)
   const [erro, setErro] = useState(null)
   const [parSelecionado, setParSelecionado] = useState(null)
   const [geometria, setGeometria] = useState(null)
@@ -128,11 +135,31 @@ export default function App() {
     if (clienteAtivo) buscarDuplicados(clienteAtivo, FILTROS_INICIAIS)
   }, [clienteAtivo, buscarDuplicados])
 
+  const buscarRelatorios = useCallback(async (cliente) => {
+    if (!cliente) return
+    try {
+      const resposta = await fetch(`${API_URL}/api/relatorios?cliente=${cliente}`)
+      if (!resposta.ok) throw new Error(`Falha ao buscar relatórios (HTTP ${resposta.status})`)
+      const dados = await resposta.json()
+      setRelatorios(dados.itens)
+    } catch {
+      // painel de relatórios é opcional — se falhar, só mostra vazio em vez de quebrar a tela
+      setRelatorios([])
+    }
+  }, [])
+
+  useEffect(() => {
+    if (clienteAtivo) buscarRelatorios(clienteAtivo)
+  }, [clienteAtivo, buscarRelatorios])
+
   function handleSelecionarCliente(cliente) {
     if (cliente === clienteAtivo) return
     setClienteAtivo(cliente)
     setFiltros(FILTROS_INICIAIS)
     setMensagemEmail(null)
+    setPainelRelatoriosAberto(false)
+    setRelatoriosSelecionados(new Set())
+    setMensagemRelatorios(null)
   }
 
   function handleAlternarClienteEmail(cliente, event) {
@@ -194,6 +221,38 @@ export default function App() {
       setErro(e.message)
     } finally {
       setEnviandoEmail(false)
+    }
+  }
+
+  function handleAlternarRelatorio(chartId) {
+    setRelatoriosSelecionados((atual) => {
+      const novo = new Set(atual)
+      if (novo.has(chartId)) novo.delete(chartId)
+      else novo.add(chartId)
+      return novo
+    })
+  }
+
+  async function handleEnviarRelatorios() {
+    setEnviandoRelatorios(true)
+    setErro(null)
+    setMensagemRelatorios(null)
+    try {
+      const query = [...relatoriosSelecionados].map((id) => `arquivos=${encodeURIComponent(id)}`).join('&')
+      const resposta = await fetch(`${API_URL}/api/relatorios/email?cliente=${clienteAtivo}&${query}`, {
+        method: 'POST',
+      })
+      if (!resposta.ok) {
+        const detalhe = await resposta.json().catch(() => null)
+        throw new Error(detalhe?.detail || `Falha ao enviar e-mail (HTTP ${resposta.status})`)
+      }
+      const dados = await resposta.json()
+      setMensagemRelatorios(`E-mail enviado (${dados.total} relatório(s))`)
+      setRelatoriosSelecionados(new Set())
+    } catch (e) {
+      setErro(e.message)
+    } finally {
+      setEnviandoRelatorios(false)
     }
   }
 
@@ -295,6 +354,13 @@ export default function App() {
               Exportar Excel
             </button>
             <button
+              onClick={() => setPainelRelatoriosAberto(!painelRelatoriosAberto)}
+              className="botao-secundario"
+              title="Relatórios do ManagerVision (Smartbio) já em cache pra esse cliente"
+            >
+              Relatórios ManagerVision{relatorios.length > 0 ? ` (${relatorios.length})` : ''}
+            </button>
+            <button
               onClick={handleEnviarEmail}
               disabled={(!total && clientesEmail.size === 0) || enviandoEmail}
               className="botao-secundario"
@@ -321,6 +387,63 @@ export default function App() {
           </div>
         </header>
 
+      {painelRelatoriosAberto && (
+        <div className="painel-relatorios">
+          <div className="painel-relatorios-cabecalho">
+            <h2>Relatórios ManagerVision {clienteAtivo && <span className="cliente-atual">— {clienteAtivo}</span>}</h2>
+            <div className="acoes-relatorios">
+              <button
+                onClick={handleEnviarRelatorios}
+                disabled={relatoriosSelecionados.size === 0 || enviandoRelatorios}
+                className="botao-secundario"
+                title="Loga no ManagerVision, gera um PDF de cada relatório selecionado (com os dados ao vivo) e manda tudo anexado num e-mail — pode demorar alguns segundos por relatório"
+              >
+                {enviandoRelatorios ? 'Gerando PDF e enviando…' : `Enviar PDF por e-mail (${relatoriosSelecionados.size})`}
+              </button>
+              <button onClick={() => setPainelRelatoriosAberto(false)} className="botao-secundario">
+                Fechar
+              </button>
+            </div>
+          </div>
+
+          {mensagemRelatorios && <p className="mensagem-sucesso">{mensagemRelatorios}</p>}
+
+          {relatorios.length === 0 && (
+            <p className="vazio">
+              Nenhum relatório ManagerVision em cache pra esse cliente ainda — peça pro Claude Code buscar no MCP Smartbio.
+            </p>
+          )}
+
+          <ul className="lista-relatorios">
+            {relatorios.map((r) => (
+              <li key={r.chart_id} className="relatorio-item">
+                <input
+                  type="checkbox"
+                  checked={relatoriosSelecionados.has(r.chart_id)}
+                  onChange={() => handleAlternarRelatorio(r.chart_id)}
+                  title="Selecionar pra enviar por e-mail"
+                />
+                <div className="relatorio-info">
+                  <strong>{r.titulo}</strong>
+                  <p>{r.description}</p>
+                </div>
+                <a href={r.url} target="_blank" rel="noreferrer" className="botao-secundario">
+                  Visualizar
+                </a>
+                <button
+                  type="button"
+                  onClick={() => window.open(`${API_URL}/api/relatorios/${r.chart_id}/pdf?cliente=${clienteAtivo}`, '_blank')}
+                  className="botao-secundario"
+                  title="Loga no ManagerVision e baixa o PDF desse relatório com os dados ao vivo (pode levar alguns segundos)"
+                >
+                  Baixar PDF
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <form className="filtros" onSubmit={handleFiltrarSubmit}>
         <input
           type="text"
@@ -339,6 +462,12 @@ export default function App() {
           placeholder="Safra"
           value={filtros.safra}
           onChange={(e) => setFiltros({ ...filtros, safra: e.target.value })}
+        />
+        <input
+          type="text"
+          placeholder="Talhão"
+          value={filtros.talhao}
+          onChange={(e) => setFiltros({ ...filtros, talhao: e.target.value })}
         />
         <input
           type="number"

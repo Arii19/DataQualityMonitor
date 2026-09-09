@@ -1,9 +1,13 @@
 .env
+.claude/settings.json
+.claude/settings.local.json
 output/*.html
 output/*.xlsx
+output/managervision_pdf/
 !output/.gitkeep
 raw/
 cache/*.json
+cache/managervision/*.json
 !cache/.gitkeep
 dist/
 logs/

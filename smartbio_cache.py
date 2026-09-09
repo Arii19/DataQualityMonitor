@@ -251,7 +251,8 @@ def calcular_sobreposicoes(df, cliente):
     }
     pares = pares.rename(columns=colunas)
     # classificar_motivo espera Fazenda1/2, Talhao1/2 e PercentualSobreposicaoGeral
-    # já renomeados (é o mesmo contrato usado por app.py.intersect) e
+    # já renomeados (é o mesmo contrato usado por app.py.intersect), mais
+    # PercentualSobreposto1/2 (ainda não renomeados/removidos nesse ponto) e
     # NomeFazenda_1/2 (não renomeado) pra achar fazenda cadastrada 2x com
     # código diferente.
     pares["Motivo"] = classificar_motivo(pares)

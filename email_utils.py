@@ -61,12 +61,7 @@ def _anexo_em_base64(caminho_arquivo):
     }
 
 
-def enviar_email(caminho_arquivo, assunto=None, corpo=None, destinatarios=None):
-    """Envia um ou mais arquivos por e-mail via Microsoft Graph, todos num só
-    e-mail (um anexo por arquivo). Aceita um caminho só ou uma lista de
-    caminhos — é o que permite mandar vários clientes juntos. Usa
-    remetente/assunto/destinatários do .env por padrão; qualquer um pode ser
-    sobrescrito por parâmetro."""
+def _enviar_mensagem(assunto, corpo, destinatarios, anexos=None):
     if not EMAIL_SENDER:
         raise ValueError("EMAIL_SENDER não foi encontrado no .env")
 
@@ -74,31 +69,25 @@ def enviar_email(caminho_arquivo, assunto=None, corpo=None, destinatarios=None):
     if not destinatarios:
         raise ValueError("Nenhum destinatário configurado (EMAIL_RECIPIENTS no .env)")
 
-    caminhos = [caminho_arquivo] if isinstance(caminho_arquivo, (str, Path)) else list(caminho_arquivo)
-    if not caminhos:
-        raise ValueError("Nenhum arquivo pra anexar")
-
     token = _obter_token()
 
-    mensagem = {
-        "message": {
-            "subject": assunto or EMAIL_SUBJECT,
-            "body": {
-                "contentType": "Text",
-                "content": corpo or "Segue em anexo o relatório das geometrias duplicadas.",
-            },
-            "toRecipients": [
-                {"emailAddress": {"address": destinatario}} for destinatario in destinatarios
-            ],
-            "attachments": [_anexo_em_base64(caminho) for caminho in caminhos],
+    corpo_mensagem = {
+        "subject": assunto or EMAIL_SUBJECT,
+        "body": {
+            "contentType": "Text",
+            "content": corpo or "Segue em anexo o relatório das geometrias duplicadas.",
         },
-        "saveToSentItems": "true",
+        "toRecipients": [
+            {"emailAddress": {"address": destinatario}} for destinatario in destinatarios
+        ],
     }
+    if anexos:
+        corpo_mensagem["attachments"] = [_anexo_em_base64(caminho) for caminho in anexos]
 
     resposta = requests.post(
         f"https://graph.microsoft.com/v1.0/users/{EMAIL_SENDER}/sendMail",
         headers={"Authorization": f"Bearer {token}"},
-        json=mensagem,
+        json={"message": corpo_mensagem, "saveToSentItems": "true"},
         timeout=30,
     )
 
@@ -106,6 +95,26 @@ def enviar_email(caminho_arquivo, assunto=None, corpo=None, destinatarios=None):
         raise RuntimeError(f"Falha ao enviar e-mail (HTTP {resposta.status_code}): {resposta.text}")
 
     return True
+
+
+def enviar_email(caminho_arquivo, assunto=None, corpo=None, destinatarios=None):
+    """Envia um ou mais arquivos por e-mail via Microsoft Graph, todos num só
+    e-mail (um anexo por arquivo). Aceita um caminho só ou uma lista de
+    caminhos — é o que permite mandar vários clientes juntos. Usa
+    remetente/assunto/destinatários do .env por padrão; qualquer um pode ser
+    sobrescrito por parâmetro."""
+    caminhos = [caminho_arquivo] if isinstance(caminho_arquivo, (str, Path)) else list(caminho_arquivo)
+    if not caminhos:
+        raise ValueError("Nenhum arquivo pra anexar")
+
+    return _enviar_mensagem(assunto, corpo, destinatarios, anexos=caminhos)
+
+
+def enviar_email_texto(assunto=None, corpo=None, destinatarios=None):
+    """Envia um e-mail só de texto, sem anexo — usado pra mandar links (ex.:
+    relatórios do ManagerVision, que dependem da sessão/domínio do cliente
+    pra carregar dados e por isso não podem ser enviados como HTML anexado)."""
+    return _enviar_mensagem(assunto, corpo, destinatarios)
 
 
 def _excel_mais_recente(pasta_saida="output"):

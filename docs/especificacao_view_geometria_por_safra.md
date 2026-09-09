@@ -50,29 +50,26 @@ where h.DataInicialSafra <= GETDATE()
   and h.Bloqueio = 0
 ```
 
-## Correção aplicada
+## Tentativa 1: expor `idSafra`/`IDSafra` na view original (insuficiente)
 
 `vw_bree_full.Geometria` passou a expor `idSafra` (identificador da safra
 associada), e `vw_bree_full.CadastroDeAreas` passou a expor `IDSafra`
-também. Com as duas colunas disponíveis, a extração do Data Quality Monitor
-(`.claude/skills/atualizar-geometrias/SKILL.md`) amarra a geometria certa
-direto no join:
+também. A ideia era juntar por `g.IDTalhao = c.IDTalhao AND g.idSafra =
+c.IDSafra` — mas isso **não bastou**: a view `Geometria` continuava
+devolvendo só **uma linha por `IDTalhao`** (escolhida por algum critério
+interno, não necessariamente a da safra ativa), então linhas válidas de
+outras safras que existiam na tabela crua ficavam escondidas mesmo com a
+coluna disponível.
 
-```sql
-SELECT c.IDTalhao, c.CodigoFazenda, c.NomeFazenda, c.Bloco, c.CodigoTalhao, c.Corte, c.Safra, c.AreaTotal, c.Reforma, c.Bloqueio, c.NomeUsina_Empresa_Unidade, c.Ativo, g.GeoJson
-FROM vw_bree_full.CadastroDeAreas c
-INNER JOIN vw_bree_full.Geometria g ON g.IDTalhao = c.IDTalhao AND g.idSafra = c.IDSafra
-WHERE c.DataInicialSafra <= GETDATE() AND c.DataFinalSafra > GETDATE() AND c.Bloqueio = 0
-```
+**Prova concreta**: o talhão 119679498 (Atvos) tem safra ativa = 32.
+`vw_bree_full.Geometria` só mostrava esse talhão com `idSafra=20040`
+(geometria de outra safra). Só que consultando a tabela crua
+(`GeometriaGeoJson`/`GeometriaDeMapa`) direto, a linha com `idSafra=32`
+**existia de verdade** — a view estava escondendo ela. Isso gerava o
+problema oposto do original: duplicidades reais ficavam invisíveis (74+
+pares confirmados só no cliente Atvos).
 
-Isso garante a geometria da safra realmente ativa de cada talhão, sem
-precisar de nenhuma heurística de mitigação (o `AND g.idSafra = c.IDSafra`
-não pode ser omitido — sem ele, volta o problema de geometria
-desatualizada). Validado nos talhões 1037/674 do GQQ (não retornam mais
-nenhuma linha, correto — sem geometria pra safra ativa) e 5613/6027
-(retornam com `idSafra` batendo dos dois lados).
-
-### Tentativa alternativa descartada (heurística client-side)
+### Tentativa descartada: heurística client-side por moda
 
 No caminho até a correção real, foi tentada uma mitigação client-side em
 `smartbio_cache.py` (`_filtrar_por_safra_ativa()`): comparar o `idSafra` de
@@ -83,3 +80,48 @@ comparáveis (não é uma maioria certa com poucos outliers errados) — um
 talhão ativo dentro do período deve contar independente de qual safra for
 a mais comum no lote. A função continua no código, desativada de propósito
 (retorna o `df` intacto), com o histórico completo no comentário.
+
+## Correção aplicada: `vw_bree_full.Geometria_DEBUG` (passthrough)
+
+Foi criada uma segunda view, `vw_bree_full.Geometria_DEBUG`, como
+passthrough **sem** a seleção de "uma geometria por talhão" — mesmas 3
+colunas (`IDTalhao`, `GeoJson`, `idSafra`), mas com uma linha por
+combinação real de `(IDTalhao, idSafra)` existente na tabela crua. A
+extração do Data Quality Monitor (`.claude/skills/atualizar-geometrias/SKILL.md`)
+usa essa view:
+
+```sql
+SELECT c.IDTalhao, c.CodigoFazenda, c.NomeFazenda, c.Bloco, c.CodigoTalhao, c.Corte, c.Safra, c.AreaTotal, c.Reforma, c.Bloqueio, c.NomeUsina_Empresa_Unidade, c.Ativo, g.GeoJson
+FROM vw_bree_full.CadastroDeAreas c
+INNER JOIN (
+    SELECT IDTalhao, idSafra, GeoJson,
+           ROW_NUMBER() OVER (PARTITION BY IDTalhao, idSafra ORDER BY (SELECT NULL)) AS rn
+    FROM vw_bree_full.Geometria_DEBUG
+) g ON g.IDTalhao = c.IDTalhao AND g.idSafra = c.IDSafra AND g.rn = 1
+WHERE c.DataInicialSafra <= GETDATE() AND c.DataFinalSafra > GETDATE() AND c.Bloqueio = 0
+```
+
+O `ROW_NUMBER()`/`rn = 1` é necessário porque, sendo passthrough, a view
+também expõe duplicatas reais da tabela crua — chegamos a achar um talhão
+(SantaAdelia, IDTalhao 52046) com **52 linhas idênticas** pra exatamente o
+mesmo `(IDTalhao, idSafra)`. Sem essa deduplicação, o join gera fan-out (1
+talhão × 52 linhas = 52 "cópias"), e o cálculo de sobreposição as compara
+entre si como talhões diferentes — chegou a inflar a SantaAdelia de 73
+para 3875 "pares" só com esse artefato. Com `rn = 1`, sobra exatamente uma
+linha por `(IDTalhao, idSafra)`, e como todas as duplicatas dentro do
+mesmo talhão+safra são a mesma geometria (ou reentrada redundante), não
+importa qual delas o `ROW_NUMBER()` escolhe.
+
+Essa combinação (view passthrough + join por `IDTalhao`+`idSafra` +
+deduplicação) resolve os dois problemas de vez, sem nenhuma heurística por
+área ou por safra mais comum:
+
+- Validado nos talhões 1037/674 do GQQ: não retornam mais nenhuma linha
+  (correto — sem geometria pra safra ativa).
+- Validado no talhão 119679498 da Atvos: agora retorna com `idSafra=32`
+  (a safra ativa certa), não mais o `20040` desatualizado.
+- Validado no talhão 52046 da SantaAdelia: agora retorna 1 linha só, não
+  52.
+
+**Não use `vw_bree_full.Geometria` (a original) nem omita o `ROW_NUMBER()`
+— os dois passos são necessários.**

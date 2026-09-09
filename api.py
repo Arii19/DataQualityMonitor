@@ -23,6 +23,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
 from email_utils import enviar_email
+from managervision_pdf import exportar_varios_pdf
 from smartbio_cache import CACHE_DIR, CLIENTES, OUTPUT_DIR
 
 app = FastAPI(title="Data Quality Monitor - Geometrias Duplicadas")
@@ -34,6 +35,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+MANAGERVISION_CACHE_DIR = CACHE_DIR / "managervision"
 
 
 def _carregar_cache(cliente: str) -> dict:
@@ -74,10 +78,14 @@ def _gerar_excel_multi_aba(clientes: list[str]) -> Path:
     return caminho
 
 
-def _bate_filtro(item: dict, fazenda, usina, safra, percentual_minimo) -> bool:
+def _bate_filtro(item: dict, fazenda, usina, safra, talhao, percentual_minimo) -> bool:
     if fazenda:
         alvo = fazenda.lower()
         if alvo not in str(item.get("Fazenda1", "")).lower() and alvo not in str(item.get("Fazenda2", "")).lower():
+            return False
+    if talhao:
+        alvo = talhao.lower()
+        if alvo not in str(item.get("Talhao1", "")).lower() and alvo not in str(item.get("Talhao2", "")).lower():
             return False
     if usina:
         alvo = usina.lower()
@@ -127,11 +135,12 @@ def listar_duplicados(
     fazenda: Optional[str] = None,
     usina: Optional[str] = None,
     safra: Optional[str] = None,
+    talhao: Optional[str] = None,
     percentual_minimo: Optional[float] = None,
 ):
     """Lista os pares já calculados pro cliente selecionado, com filtros opcionais."""
     dados = _carregar_cache(cliente)
-    itens = [i for i in dados["itens"] if _bate_filtro(i, fazenda, usina, safra, percentual_minimo)]
+    itens = [i for i in dados["itens"] if _bate_filtro(i, fazenda, usina, safra, talhao, percentual_minimo)]
 
     # a lista fica leve (sem geometria) — o desenho de cada par só é buscado
     # sob demanda em /api/duplicados/{id}/geometria quando o usuário clica na linha
@@ -194,3 +203,78 @@ def enviar_por_email(clientes: List[str] = Query(...)):
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     return {"enviado": True, "arquivo": arquivo.name}
+
+
+def _carregar_relatorios(cliente: str) -> dict:
+    caminho = MANAGERVISION_CACHE_DIR / f"{cliente}.json"
+    if not caminho.exists():
+        return {"itens": []}
+    return json.loads(caminho.read_text(encoding="utf-8"))
+
+
+@app.get("/api/relatorios")
+def listar_relatorios(cliente: str):
+    """Lista os relatórios do ManagerVision (Smartbio) já baixados em cache
+    pra esse cliente: título, descrição e link pro relatório ao vivo. Esse
+    cache só é populado por uma sessão do Claude com o MCP Smartbio — esse
+    backend não acessa o ManagerVision diretamente, então a lista fica vazia
+    até alguém pedir pro Claude Code atualizar."""
+    return _carregar_relatorios(cliente)
+
+
+def _selecionar_relatorios(cliente: str, chart_ids: List[str]) -> list[dict]:
+    dados = _carregar_relatorios(cliente)
+    por_id = {item["chart_id"]: item for item in dados["itens"]}
+
+    selecionados = []
+    for chart_id in chart_ids:
+        item = por_id.get(chart_id)
+        if not item:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Relatório '{chart_id}' não encontrado no cache de '{cliente}'.",
+            )
+        selecionados.append(item)
+    return selecionados
+
+
+@app.get("/api/relatorios/{chart_id}/pdf")
+def baixar_relatorio_pdf(chart_id: str, cliente: str):
+    """Loga no ManagerVision (Playwright) e devolve o PDF de um relatório,
+    com os dados ao vivo — pra download direto pelo botão da tela."""
+    item = _selecionar_relatorios(cliente, [chart_id])[0]
+
+    try:
+        [(_, caminho)] = exportar_varios_pdf([item], OUTPUT_DIR / "managervision_pdf" / cliente)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    nome_arquivo = f"{item['titulo']}.pdf".replace("/", "-")
+    return FileResponse(caminho, media_type="application/pdf", filename=nome_arquivo)
+
+
+@app.post("/api/relatorios/email")
+def enviar_relatorios_por_email(cliente: str, arquivos: List[str] = Query(...)):
+    """Gera um PDF de cada relatório selecionado (login automatizado via
+    Playwright, com dados ao vivo) e manda todos anexados num único e-mail."""
+    selecionados = _selecionar_relatorios(cliente, arquivos)
+    if not selecionados:
+        raise HTTPException(status_code=400, detail="Nenhum relatório selecionado.")
+
+    try:
+        exportados = exportar_varios_pdf(selecionados, OUTPUT_DIR / "managervision_pdf" / cliente)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    caminhos = [caminho for _, caminho in exportados]
+    titulos = [item["titulo"] for item, _ in exportados]
+    corpo = f"Segue em anexo os relatórios do ManagerVision ({cliente}):\n\n" + "\n".join(
+        f"- {t}" for t in titulos
+    )
+
+    try:
+        enviar_email(caminhos, assunto=f"Relatórios ManagerVision - {cliente}", corpo=corpo)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    return {"enviado": True, "total": len(caminhos)}

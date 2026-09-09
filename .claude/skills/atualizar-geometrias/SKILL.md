@@ -24,22 +24,34 @@ nome exato antes de seguir.
    ```sql
    SELECT c.IDTalhao, c.CodigoFazenda, c.NomeFazenda, c.Bloco, c.CodigoTalhao, c.Corte, c.Safra, c.AreaTotal, c.Reforma, c.Bloqueio, c.NomeUsina_Empresa_Unidade, c.Ativo, g.GeoJson
    FROM vw_bree_full.CadastroDeAreas c
-   INNER JOIN vw_bree_full.Geometria g ON g.IDTalhao = c.IDTalhao AND g.idSafra = c.IDSafra
+   INNER JOIN (
+       SELECT IDTalhao, idSafra, GeoJson,
+              ROW_NUMBER() OVER (PARTITION BY IDTalhao, idSafra ORDER BY (SELECT NULL)) AS rn
+       FROM vw_bree_full.Geometria_DEBUG
+   ) g ON g.IDTalhao = c.IDTalhao AND g.idSafra = c.IDSafra AND g.rn = 1
    WHERE c.DataInicialSafra <= GETDATE() AND c.DataFinalSafra > GETDATE() AND c.Bloqueio = 0
    ```
 
-   O `AND g.idSafra = c.IDSafra` é essencial — resolve de vez o problema
-   documentado em docs/especificacao_view_geometria_por_safra.md (a view
-   `Geometria` podia devolver geometria de uma safra antiga pra um talhão
-   sem desenho pra safra ativa). Antes disso as duas colunas de safra
-   (`IDSafra` em `CadastroDeAreas`, `idSafra` em `Geometria`) não existiam;
-   agora que existem dos dois lados, o join garante a geometria certa
-   diretamente, sem precisar de nenhuma heurística por área ou por
-   "safra mais comum do lote" (tentamos isso e reverteu — ver histórico do
-   projeto e comentário em `_filtrar_por_safra_ativa` em
-   `smartbio_cache.py`: vários clientes têm múltiplas safras/cortes
-   legitimamente ativos ao mesmo tempo, então esse tipo de heurística some
-   com dado real). **Não omita esse `AND` do join.**
+   Usa `Geometria_DEBUG`, não `Geometria` — a `Geometria` original só
+   devolve uma linha por `IDTalhao` (às vezes a de uma safra errada,
+   escondendo linhas válidas de outra safra que existem na tabela crua). A
+   `Geometria_DEBUG` é um passthrough sem essa seleção — mas por ser
+   passthrough, também expõe duplicatas reais da tabela crua: já achamos
+   talhão com **52 linhas idênticas** pra exatamente o mesmo
+   `(IDTalhao, idSafra)` (SantaAdelia, IDTalhao 52046). Sem o
+   `ROW_NUMBER()`/`rn = 1` acima, isso vira fan-out no join (1 talhão × 52
+   linhas de geometria = 52 "cópias" do mesmo talhão), e o cálculo de
+   sobreposição as compara entre si como se fossem talhões diferentes —
+   gerando uma explosão de pares falsos (chegou a inflar a SantaAdelia de
+   73 pra 3875 "pares"). O `ROW_NUMBER()` garante **uma linha por
+   `(IDTalhao, idSafra)`** antes do join com `CadastroDeAreas`, sem
+   depender de qual das duplicatas é "a certa" (dentro do mesmo talhão +
+   safra, presume-se que sejam a mesma geometria ou uma reentrada
+   redundante — qualquer uma serve). Detalhe completo (incluindo por que a
+   heurística "safra mais comum do lote" foi tentada e revertida antes
+   dessa correção) em docs/especificacao_view_geometria_por_safra.md.
+   **Não troque `Geometria_DEBUG` de volta por `Geometria`, não omita o
+   `AND` do join, e não tire o `ROW_NUMBER()`/`rn = 1`.**
 
    Isso devolve um `download_url` (expira em ~600s — baixe logo em seguida).
    Clientes grandes (Atvos, Cocal, IPE, CMAA, SantaAdelia) passam de 100MB;

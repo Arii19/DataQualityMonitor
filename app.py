@@ -6,21 +6,40 @@ import geopandas
 
 
 def classificar_motivo(pares):
+    """`pares` precisa ter `PercentualSobreposto1`/`PercentualSobreposto2` (o
+    percentual de CADA talhão individualmente, não só o geral por
+    união/interseção) — `intersect()` já calcula os dois antes de chamar
+    esta função, mesmo que eles não sobrevivam na seleção final de colunas."""
     mesma_fazenda = pares["Fazenda1"] == pares["Fazenda2"]
     mesmo_talhao = pares["Talhao1"] == pares["Talhao2"]
     mesmo_nome_fazenda = pares["NomeFazenda_1"] == pares["NomeFazenda_2"]
     quase_identico = pares["PercentualSobreposicaoGeral"] > 90
 
+    # um dos dois talhões está quase inteiro dentro do outro (>90% da área
+    # DELE, não da união), mesmo que o percentual geral seja bem menor —
+    # sinal de que um é um talhão menor (ex.: sub-talhão/variedade em parte
+    # da área) registrado dentro do talhão maior, não um erro de limite
+    # entre vizinhos independentes. Confirmado em dados reais (Atvos): esse
+    # padrão aparece consistentemente com percentual geral perto de frações
+    # "redondas" (~50%, por exemplo, quando o menor cobre metade do maior),
+    # muitas vezes com o menor sendo um MultiPolygon de várias partes
+    # espalhadas dentro do Polygon maior — mas o critério usado aqui
+    # (percentual individual, não o tipo de geometria) captura o mesmo sinal
+    # de forma mais direta e também pega casos Polygon×Polygon equivalentes.
+    contido = (pares["PercentualSobreposto1"] > 90) | (pares["PercentualSobreposto2"] > 90)
+
     condicoes = [
         mesma_fazenda & mesmo_talhao,
         mesmo_nome_fazenda & ~mesma_fazenda,
         mesma_fazenda & quase_identico,
+        mesma_fazenda & contido,
         mesma_fazenda,
     ]
     motivos = [
         "Mesmo talhão físico (ciclo/safra anterior não foi fechado)",
         "Fazenda cadastrada com código duplicado",
         "Códigos de talhão diferentes quase 100% sobrepostos",
+        "Provável subdivisão — área menor contida dentro do talhão maior",
         "Talhões vizinhos com sobreposição parcial de limite",
     ]
     return np.select(condicoes, motivos, default="Fazendas diferentes com sobreposição de limite")

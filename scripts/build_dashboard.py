@@ -18,6 +18,7 @@ Gera dist/dashboard.html, pronto pra publicar/republicar como Artifact
 (sempre no mesmo link — republicar só troca o conteúdo).
 """
 
+import base64
 import json
 import math
 from datetime import datetime, timezone
@@ -27,11 +28,17 @@ from shapely.geometry import mapping, shape
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 CACHE_DIR = BASE_DIR / "cache"
+MANAGERVISION_CACHE_DIR = CACHE_DIR / "managervision"
+MANAGERVISION_PDF_DIR = BASE_DIR / "output" / "managervision_pdf"
 TEMPLATE_PATH = BASE_DIR / "scripts" / "dashboard_template.html"
 DIST_DIR = BASE_DIR / "dist"
 DIST_PATH = DIST_DIR / "dashboard.html"
 
 CLIENTES = ["Atvos", "SantaAdelia", "Cevasa", "CMAA", "Guaira", "GQQ", "JPA", "Cocal", "IPE"]
+
+# limite real do Artifact é 16MB; deixa margem de segurança pro overhead de
+# JS/CSS do template e pra variação de codificação — mira em 15MB no total
+TAMANHO_MAXIMO_ARTIFACT_MB = 15
 
 # colunas mantidas no embed (sem Geometria1/2 crua — essa é substituída pela
 # versão simplificada logo abaixo)
@@ -100,14 +107,86 @@ def montar_dados():
     }
 
 
+def montar_relatorios():
+    """Monta os metadados dos relatórios do ManagerVision (título/descrição/
+    link) por cliente, e devolve também a lista achatada de PDFs já gerados
+    em disco (output/managervision_pdf/<cliente>/<chart_id>.pdf) — usada
+    depois pra decidir quais cabem embutidos no Artifact."""
+    relatorios_por_cliente = {}
+    gerado_em = None
+    candidatos_pdf = []  # (entrada_dict, caminho_pdf, tamanho_bytes)
+
+    for cliente in CLIENTES:
+        caminho = MANAGERVISION_CACHE_DIR / f"{cliente}.json"
+        if not caminho.exists():
+            relatorios_por_cliente[cliente] = []
+            continue
+
+        bruto = json.loads(caminho.read_text(encoding="utf-8"))
+        if gerado_em is None or (bruto.get("gerado_em") or "") > gerado_em:
+            gerado_em = bruto.get("gerado_em")
+
+        itens = []
+        for item in bruto["itens"]:
+            entrada = {
+                "chart_id": item["chart_id"],
+                "titulo": item["titulo"],
+                "description": item["description"],
+                "url": item["url"],
+                "pdfBase64": None,
+            }
+            itens.append(entrada)
+
+            pdf_path = MANAGERVISION_PDF_DIR / cliente / f"{item['chart_id']}.pdf"
+            if pdf_path.exists():
+                candidatos_pdf.append((entrada, pdf_path, pdf_path.stat().st_size))
+
+        relatorios_por_cliente[cliente] = itens
+
+    return relatorios_por_cliente, gerado_em, candidatos_pdf
+
+
+def _preencher_pdfs_no_orcamento(candidatos_pdf, bytes_ja_usados):
+    """Embute o PDF (base64) de cada relatório, do menor pro maior, até
+    estourar TAMANHO_MAXIMO_ARTIFACT_MB — os que não couberem ficam só com
+    link "Visualizar" (pdfBase64 = None). Retorna (incluidos, excluidos)."""
+    limite_bytes = TAMANHO_MAXIMO_ARTIFACT_MB * 1024 * 1024
+    orcamento_pdf = max(0, limite_bytes - bytes_ja_usados)
+
+    candidatos_pdf.sort(key=lambda c: c[2])
+    usado = 0
+    incluidos = []
+    excluidos = []
+    for entrada, pdf_path, tamanho in candidatos_pdf:
+        tamanho_base64_estimado = math.ceil(tamanho / 3) * 4
+        if usado + tamanho_base64_estimado > orcamento_pdf:
+            excluidos.append(entrada["titulo"])
+            continue
+        entrada["pdfBase64"] = base64.b64encode(pdf_path.read_bytes()).decode("ascii")
+        usado += tamanho_base64_estimado
+        incluidos.append(entrada["titulo"])
+
+    return incluidos, excluidos
+
+
 def build():
     dados = montar_dados()
-    dados_json = json.dumps(dados, ensure_ascii=False)
+    relatorios_por_cliente, relatorios_gerado_em, candidatos_pdf = montar_relatorios()
+    dados["relatorios"] = relatorios_por_cliente
+    dados["relatoriosGeradoEm"] = relatorios_gerado_em
 
     template = TEMPLATE_PATH.read_text(encoding="utf-8")
     if "__DADOS_JSON__" not in template:
         raise RuntimeError(f"Placeholder __DADOS_JSON__ não encontrado em {TEMPLATE_PATH}")
-    final_html = template.replace("__DADOS_JSON__", dados_json)
+
+    # mede o tamanho de tudo MENOS os PDFs (geometrias + template + demais
+    # metadados) pra saber quanto orçamento sobra pros PDFs embutidos
+    baseline_html = template.replace("__DADOS_JSON__", json.dumps(dados, ensure_ascii=False))
+    bytes_sem_pdfs = len(baseline_html.encode("utf-8"))
+
+    incluidos, excluidos = _preencher_pdfs_no_orcamento(candidatos_pdf, bytes_sem_pdfs)
+
+    final_html = template.replace("__DADOS_JSON__", json.dumps(dados, ensure_ascii=False))
 
     DIST_DIR.mkdir(parents=True, exist_ok=True)
     DIST_PATH.write_text(final_html, encoding="utf-8")
@@ -116,6 +195,10 @@ def build():
     print(f"dist/dashboard.html gerado ({tamanho_mb:.2f}MB)")
     for meta in dados["clientes"]:
         print(f"  {meta['cliente']:15s} {meta['total']} par(es)")
+
+    print(f"\nRelatórios ManagerVision: {len(incluidos)} com PDF embutido, {len(excluidos)} só com link (não couberam no limite)")
+    for titulo in excluidos:
+        print(f"  sem PDF embutido (só link): {titulo}")
 
 
 if __name__ == "__main__":

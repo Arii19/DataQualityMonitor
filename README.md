@@ -23,10 +23,12 @@ direto na tela. `app.py` mantém só as funções de cálculo reaproveitadas por
 
 1. **Extração**: peça pro Claude Code "atualizar o cliente X" (ou "todos") —
    ele segue [.claude/skills/atualizar-geometrias/SKILL.md](.claude/skills/atualizar-geometrias/SKILL.md).
-   Consulta `vw_bree_full.CadastroDeAreas` + `vw_bree_full.Geometria` via MCP
-   smartbio (join amarrado por `IDTalhao` **e** `IDSafra`, pra garantir a
-   geometria da safra realmente ativa de cada talhão) e salva o CSV bruto em
-   `raw/<cliente>/`.
+   Consulta `vw_bree_full.CadastroDeAreas` + `vw_bree_full.Geometria_DEBUG`
+   via MCP smartbio (join amarrado por `IDTalhao` **e** `IDSafra`, com
+   deduplicação, pra garantir a geometria da safra realmente ativa de cada
+   talhão — detalhe técnico em
+   [docs/especificacao_view_geometria_por_safra.md](docs/especificacao_view_geometria_por_safra.md))
+   e salva o CSV bruto em `raw/<cliente>/`.
 2. **Cálculo** ([smartbio_cache.py](smartbio_cache.py)): lê esse CSV, roda a
    mesma lógica de sobreposição de `app.py.intersect()` (GeoPandas: sjoin
    espacial + área de interseção/união, só pares com mais de 1% de
@@ -95,11 +97,19 @@ Claude é o que repovoa os dois.
 ```powershell
 python -m venv venv
 .\venv\Scripts\pip install -r requirements.txt
+.\venv\Scripts\python -m playwright install chromium
 ```
+
+O último passo baixa o Chromium usado pelo Playwright pra exportar em PDF os
+relatórios do ManagerVision (ver `managervision_pdf.py`) — sem ele, só o
+download do binário do navegador, os endpoints `/api/relatorios/*/pdf` e
+`/api/relatorios/email` falham.
 
 Crie um arquivo `.env` na raiz do projeto com as credenciais de e-mail (via
 Microsoft Graph, usadas por `config.py`/`email_utils.py` — ver `## API`
-abaixo):
+abaixo) e o login do ManagerVision (usado pelo Playwright pra autenticar e
+carregar os dados ao vivo dos relatórios — a mesma conta funciona em todos
+os clientes/subdomínios smartbreeder.com.br):
 
 ```
 AZURE_TENANT_ID=
@@ -108,6 +118,8 @@ AZURE_CLIENT_SECRET=
 EMAIL_SENDER=
 EMAIL_RECIPIENTS=fulano@empresa.com, ciclano@empresa.com
 EMAIL_SUBJECT=Relatório de Geometrias Duplicadas
+MANAGERVISION_USER=
+MANAGERVISION_PASSWORD=
 ```
 
 ### 2. Frontend
@@ -174,7 +186,7 @@ nada — todas leem `cache/<cliente>.json`, que só é populado pelo
 |---|---|---|
 | `GET` | `/api/clientes` | Lista os 9 clientes, com total de pares e data do cache de cada um |
 | `POST` | `/api/pipeline/rodar?cliente=X` | Confirma que existe cache pra esse cliente e devolve a data em que foi gerado — não recalcula |
-| `GET` | `/api/duplicados?cliente=X` | Lista os pares calculados desse cliente (filtros: `fazenda`, `usina`, `safra`, `percentual_minimo`) |
+| `GET` | `/api/duplicados?cliente=X` | Lista os pares calculados desse cliente (filtros: `fazenda`, `usina`, `safra`, `talhao`, `percentual_minimo`) |
 | `GET` | `/api/duplicados/{id}/geometria?cliente=X` | Geometria (GeoJSON) das duas talhões de um par, pra desenhar na tela |
 | `GET` | `/api/duplicados/excel?cliente=X` | Baixa o último Excel gerado pra esse cliente |
 | `POST` | `/api/duplicados/email?clientes=X&clientes=Y` | Envia por e-mail os clientes selecionados (Microsoft Graph, via `config.py`/`email_utils.py`). Um cliente só: anexa o Excel já gerado por ele. Mais de um: monta um único Excel com uma aba por cliente (cada aba já tem uma coluna `Cliente` também) em vez de vários anexos. |

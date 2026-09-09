@@ -165,6 +165,39 @@
 
   .acoes-topo { display: flex; gap: 10px; }
 
+  .painel-relatorios {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--code-bg);
+    padding: 16px 20px;
+    margin: 0 0 22px;
+  }
+  .painel-relatorios[hidden] { display: none; }
+  .painel-relatorios-cabecalho {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .painel-relatorios-cabecalho h2 { font-size: 17px; }
+  .painel-relatorios-nota { font-size: 12px; color: var(--text); margin-top: 4px; }
+  .lista-relatorios { list-style: none; margin: 14px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .relatorio-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+  }
+  .relatorio-info { flex: 1 1 auto; min-width: 0; }
+  .relatorio-info strong { color: var(--text-h); }
+  .relatorio-info p { margin: 2px 0 0; font-size: 12.5px; color: var(--text); }
+  .relatorio-acoes { display: flex; gap: 8px; flex: 0 0 auto; }
+  a.botao-secundario { text-decoration: none; display: inline-flex; align-items: center; }
+
   button.botao-primario, button.botao-secundario {
     border-radius: 8px;
     padding: 9px 16px;
@@ -296,13 +329,29 @@
       <div class="acoes-topo">
         <button id="botao-tema" class="botao-secundario botao-tema" title="Alternar tema" aria-label="Alternar tema">🌙</button>
         <button id="botao-excel" class="botao-secundario">Exportar Excel</button>
+        <button id="botao-relatorios" class="botao-secundario">Relatórios ManagerVision</button>
       </div>
     </header>
+
+    <div class="painel-relatorios" id="painel-relatorios" hidden>
+      <div class="painel-relatorios-cabecalho">
+        <div>
+          <h2>Relatórios ManagerVision <span class="cliente-atual" id="titulo-relatorios-cliente"></span></h2>
+          <p class="painel-relatorios-nota">
+            "Visualizar" abre o relatório ao vivo (precisa estar logado no ManagerVision). "Baixar PDF" baixa uma
+            foto do relatório tirada em <span id="relatorios-gerado-em"></span> — pra atualizar, peça uma nova geração.
+          </p>
+        </div>
+        <button id="botao-fechar-relatorios" class="botao-secundario">Fechar</button>
+      </div>
+      <ul class="lista-relatorios" id="lista-relatorios"></ul>
+    </div>
 
     <form class="filtros" id="form-filtros">
       <input type="text" id="filtro-fazenda" placeholder="Fazenda" />
       <input type="text" id="filtro-usina" placeholder="Usina" />
       <input type="text" id="filtro-safra" placeholder="Safra" />
+      <input type="text" id="filtro-talhao" placeholder="Talhão" />
       <input type="number" step="0.01" min="0" max="100" id="filtro-percentual" placeholder="% sobreposição mínima" />
       <button type="submit" class="botao-primario">Filtrar</button>
       <button type="button" id="botao-limpar" class="botao-secundario">Limpar</button>
@@ -351,7 +400,7 @@
   var TAMANHO = 420;
   var PADDING = 24;
 
-  var FILTROS_INICIAIS = { fazenda: "", usina: "", safra: "", percentualMinimo: "" };
+  var FILTROS_INICIAIS = { fazenda: "", usina: "", safra: "", talhao: "", percentualMinimo: "" };
   var estado = {
     clienteAtivo: null,
     filtros: Object.assign({}, FILTROS_INICIAIS),
@@ -435,10 +484,101 @@
     document.getElementById("filtro-fazenda").value = "";
     document.getElementById("filtro-usina").value = "";
     document.getElementById("filtro-safra").value = "";
+    document.getElementById("filtro-talhao").value = "";
     document.getElementById("filtro-percentual").value = "";
     renderizarClientes();
     renderizarPagina();
+    renderizarRelatorios();
   }
+
+  // ---------- relatórios ManagerVision ----------
+  function base64ParaUint8Array(base64) {
+    var binario = atob(base64);
+    var bytes = new Uint8Array(binario.length);
+    for (var i = 0; i < binario.length; i++) bytes[i] = binario.charCodeAt(i);
+    return bytes;
+  }
+
+  function renderizarRelatorios() {
+    document.getElementById("titulo-relatorios-cliente").textContent = estado.clienteAtivo ? "— " + estado.clienteAtivo : "";
+    document.getElementById("relatorios-gerado-em").textContent = DADOS.relatoriosGeradoEm
+      ? new Date(DADOS.relatoriosGeradoEm).toLocaleString("pt-BR")
+      : "-";
+
+    var itens = (DADOS.relatorios && DADOS.relatorios[estado.clienteAtivo]) || [];
+    var lista = document.getElementById("lista-relatorios");
+    lista.innerHTML = "";
+
+    document.getElementById("botao-relatorios").textContent =
+      "Relatórios ManagerVision" + (itens.length ? " (" + itens.length + ")" : "");
+
+    if (itens.length === 0) {
+      var li = document.createElement("li");
+      li.className = "vazio";
+      li.textContent = "Nenhum relatório ManagerVision em cache pra esse cliente.";
+      lista.appendChild(li);
+      return;
+    }
+
+    itens.forEach(function (r) {
+      var li = document.createElement("li");
+      li.className = "relatorio-item";
+
+      var info = document.createElement("div");
+      info.className = "relatorio-info";
+      info.innerHTML = "<strong>" + escapar(r.titulo) + "</strong><p>" + escapar(r.description) + "</p>";
+      li.appendChild(info);
+
+      var acoes = document.createElement("div");
+      acoes.className = "relatorio-acoes";
+
+      var linkVer = document.createElement("a");
+      linkVer.className = "botao-secundario";
+      linkVer.href = r.url;
+      linkVer.target = "_blank";
+      linkVer.rel = "noreferrer";
+      linkVer.textContent = "Visualizar";
+      acoes.appendChild(linkVer);
+
+      if (r.pdfBase64) {
+        var botaoPdf = document.createElement("button");
+        botaoPdf.type = "button";
+        botaoPdf.className = "botao-secundario";
+        botaoPdf.textContent = "Baixar PDF";
+        botaoPdf.addEventListener("click", async function () {
+          var caixaErro = document.getElementById("caixa-erro");
+          caixaErro.hidden = true;
+          try {
+            var downloads = (window.claude && (await window.claude.use("downloads"))) || null;
+            if (!downloads) {
+              caixaErro.textContent = "Download indisponível neste visualizador.";
+              caixaErro.hidden = false;
+              return;
+            }
+            await downloads.save({
+              filename: r.titulo.replace(/[\\/:*?"<>|]/g, "-") + ".pdf",
+              data: base64ParaUint8Array(r.pdfBase64),
+            });
+          } catch (e) {
+            if (e && e.code === "declined") return;
+            caixaErro.textContent = "Não foi possível baixar o PDF: " + (e && e.message ? e.message : e);
+            caixaErro.hidden = false;
+          }
+        });
+        acoes.appendChild(botaoPdf);
+      }
+
+      li.appendChild(acoes);
+      lista.appendChild(li);
+    });
+  }
+
+  document.getElementById("botao-relatorios").addEventListener("click", function () {
+    document.getElementById("painel-relatorios").hidden = false;
+  });
+  document.getElementById("botao-fechar-relatorios").addEventListener("click", function () {
+    document.getElementById("painel-relatorios").hidden = true;
+  });
 
   // ---------- filtro + tabela ----------
   function itensFiltrados() {
@@ -456,6 +596,10 @@
       if (f.safra) {
         var alvoS = f.safra.toLowerCase();
         if (!String(item.AnoSafra1 || "").toLowerCase().includes(alvoS) && !String(item.AnoSafra2 || "").toLowerCase().includes(alvoS)) return false;
+      }
+      if (f.talhao) {
+        var alvoT = f.talhao.toLowerCase();
+        if (!String(item.Talhao1 || "").toLowerCase().includes(alvoT) && !String(item.Talhao2 || "").toLowerCase().includes(alvoT)) return false;
       }
       if (f.percentualMinimo !== "" && f.percentualMinimo !== null && f.percentualMinimo !== undefined) {
         if ((item.PercentualSobreposicaoGeral || 0) < Number(f.percentualMinimo)) return false;
@@ -522,6 +666,7 @@
       fazenda: document.getElementById("filtro-fazenda").value,
       usina: document.getElementById("filtro-usina").value,
       safra: document.getElementById("filtro-safra").value,
+      talhao: document.getElementById("filtro-talhao").value,
       percentualMinimo: document.getElementById("filtro-percentual").value,
     };
     renderizarPagina();
@@ -531,6 +676,7 @@
     document.getElementById("filtro-fazenda").value = "";
     document.getElementById("filtro-usina").value = "";
     document.getElementById("filtro-safra").value = "";
+    document.getElementById("filtro-talhao").value = "";
     document.getElementById("filtro-percentual").value = "";
     renderizarPagina();
   });
@@ -684,5 +830,6 @@
   estado.clienteAtivo = (DADOS.clientes.find(function (c) { return c.total; }) || DADOS.clientes[0] || {}).cliente || null;
   renderizarClientes();
   renderizarPagina();
+  renderizarRelatorios();
 })();
 </script>
