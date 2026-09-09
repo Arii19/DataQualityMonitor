@@ -1,5 +1,7 @@
-# Registra a tarefa agendada do Windows que roda a atualização diária
-# (scripts/atualizar_diario.ps1) todo dia às 06:00, hora local.
+﻿# Registra a tarefa agendada do Windows que roda a atualização diária
+# (scripts/atualizar_diario.ps1 — geometrias duplicadas + relatórios e PDFs
+# do ManagerVision + rebuild do dashboard + e-mail de aviso) todo dia às
+# 07:55, hora local.
 # Rode isso uma vez, manualmente, num PowerShell comum (não precisa admin,
 # a tarefa fica só pro seu usuário).
 #
@@ -18,9 +20,9 @@ schtasks /Create /F `
   /TN $nomeTarefa `
   /TR "powershell.exe $acao" `
   /SC DAILY `
-  /ST 07:40 `
+  /ST 07:55 `
   /RL LIMITED
 
-Write-Output "Tarefa '$nomeTarefa' criada — roda todo dia às 07:40 (precisa do notebook ligado/logado nesse horário)."
+Write-Output "Tarefa '$nomeTarefa' criada — roda todo dia às 07:55 (precisa do notebook ligado/logado nesse horário)."
 Write-Output "Pra rodar uma vez agora e conferir: schtasks /Run /TN `"$nomeTarefa`""
 Write-Output "Pra ver o histórico: abra o 'Agendador de Tarefas' do Windows e procure por '$nomeTarefa'."

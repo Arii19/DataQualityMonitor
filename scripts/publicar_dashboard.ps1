@@ -1,4 +1,4 @@
-# Regenera dist/dashboard.html a partir do cache mais recente.
+﻿# Regenera dist/dashboard.html a partir do cache mais recente.
 #
 # NÃO publica sozinho no artifact (mesmo rodando manualmente, num terminal
 # comum) — testamos: funcionou quando disparado de dentro de uma sessão do
@@ -9,7 +9,7 @@
 # isolada, não importa quem ou como dispara.
 #
 # Fluxo real, sem mais tentativa de automatizar isso via script:
-#   1. Rode este script (ou espere a tarefa das 07:40) pra deixar
+#   1. Rode este script (ou espere a tarefa das 07:55) pra deixar
 #      dist/dashboard.html atualizado no disco.
 #   2. Numa conversa com o Claude Code (esta mesma ou outra), peça:
 #      "atualiza e republica o dashboard" — ele lê a versão publicada atual
