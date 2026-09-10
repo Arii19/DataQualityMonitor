@@ -7,9 +7,8 @@ description: Atualiza cache/managervision/<cliente>.json com a lista de relatór
 
 Repopula `cache/managervision/<cliente>.json` (metadado dos relatórios) e os
 PDFs em `output/managervision_pdf/<cliente>/`, usados pelo painel
-"Relatórios ManagerVision" da tela (local e a publicada via túnel — ambas
-leem esses arquivos direto do disco, sem passo de build separado). Rode no
-diretório do projeto.
+"Relatórios ManagerVision" da tela local e do Artifact (`dist/dashboard.html`
+via `scripts/build_dashboard.py`). Rode no diretório do projeto.
 
 Clientes válidos (mesma lista de `atualizar-geometrias`) e URL de acesso de
 cada um (pra montar o link "Visualizar" — `<url_acesso>ManagerVision/Chart/<chart_id>`):
@@ -84,5 +83,6 @@ relatório especificar.
 
 Confirme lendo `cache/managervision/<Cliente>.json` (quantos itens) pra cada
 cliente atualizado, e quantos PDFs foram gerados (o script já imprime um
-resumo OK/ERRO no final). Resuma pro usuário. Não precisa de mais nenhum
-passo — a tela lê esses arquivos direto do disco.
+resumo OK/ERRO no final). Resuma pro usuário. Isso não regenera sozinho o
+`dist/dashboard.html` — isso é `scripts/build_dashboard.py`, que também
+decide quais PDFs cabem embutidos no limite de 16MB do Artifact.

@@ -2,10 +2,8 @@
 (cache/managervision/<cliente>.json), um cliente por vez — login uma vez por
 cliente/domínio, reaproveitado pros relatórios seguintes daquele cliente.
 
-Aqui só gera e mede os arquivos em
-output/managervision_pdf/<cliente>/<chart_id>.pdf — a tela (local e a
-publicada via túnel, scripts/iniciar_tela.ps1) lê esses PDFs direto do
-disco, sem precisar de nenhum passo de build/embed separado.
+Usado como preparo pro embed no Artifact (build_dashboard.py): aqui só
+gera e mede os arquivos em output/managervision_pdf/<cliente>/<chart_id>.pdf.
 
 Rodar com:
     python scripts/build_managervision_pdfs.py

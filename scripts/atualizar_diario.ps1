@@ -1,17 +1,23 @@
-# Roda a extração diária de geometrias duplicadas E dos relatórios
+﻿# Roda a extração diária de geometrias duplicadas E dos relatórios
 # ManagerVision (todos os 9 clientes) via Claude Code headless, chamando as
 # skills .claude/skills/atualizar-geometrias e
-# .claude/skills/atualizar-relatorios-managervision, e gera os PDFs dos
-# relatórios (Playwright). No final, manda os e-mails automáticos por
-# cliente: um com o Excel de geometrias duplicadas e outro com os PDFs dos
-# relatórios ManagerVision, cada um só pro(s) destinatário(s) daquele
-# cliente (config.EMAIL_POR_CLIENTE).
+# .claude/skills/atualizar-relatorios-managervision, gera os PDFs dos
+# relatórios (Playwright) e regenera dist/dashboard.html (dado pro artifact
+# somente-leitura usado por quem acessa de fora da rede local). No final,
+# manda os e-mails automáticos por cliente: um com o Excel de geometrias
+# duplicadas e outro com os PDFs dos relatórios ManagerVision, cada um só
+# pro(s) destinatário(s) daquele cliente (config.EMAIL_POR_CLIENTE).
 #
-# Não tem passo de "publicar dashboard" nenhum: a tela (React + FastAPI),
-# local e a exposta via túnel Cloudflare (scripts/iniciar_tela.ps1, ver
-# README "Dashboard remoto"), lê cache/ e output/ direto do disco — o mesmo
-# disco que esta tarefa escreve. A tela reflete o dado mais novo sozinha,
-# sem rebuild nem restart de nada.
+# NÃO republica o artifact sozinho: a ferramenta Artifact (e, dependendo da
+# configuração de autenticação, até o MCP do smartbio) não fica disponível de
+# forma confiável numa sessão `claude -p` disparada pelo Agendador de Tarefas
+# do Windows — testado e confirmado várias vezes (ver histórico do projeto).
+# Definir CLAUDE_CODE_OAUTH_TOKEN pra "resolver" o Artifact troca o modo de
+# autenticação da sessão e quebra o acesso ao MCP do smartbio, que é pior
+# ainda — não faça isso. O fluxo real é: essa tarefa deixa dist/dashboard.html
+# sempre atualizado no disco; pra republicar o link, rode
+# scripts/publicar_dashboard.ps1 (você mesma, num terminal comum) ou peça pro
+# Claude Code numa sessão ativa ("republica o dashboard").
 #
 # Pensado pra ser disparado pelo Agendador de Tarefas do Windows — ver
 # scripts/instalar_tarefa_agendada.ps1 pra registrar isso como tarefa diária.
@@ -19,8 +25,12 @@
 # O smartbio só é consultável de dentro de uma sessão do Claude Code
 # autenticada (não existe API de serviço separada) — por isso o "cron" real
 # aqui é uma invocação do próprio `claude`, não um script python sozinho. Já
-# a geração de PDF (Playwright) e o envio dos e-mails não precisam do MCP —
-# mas ficam dentro do mesmo prompt/sessão só pra manter tudo num log só.
+# a geração de PDF (Playwright), o build do dashboard e o envio dos e-mails
+# não precisam do MCP — mas ficam dentro do mesmo prompt/sessão só pra manter
+# tudo num log só.
+#
+# URL do artifact (dashboard.html) pra republicar manualmente:
+# https://claude.ai/code/artifact/db50ea50-a6bf-415a-9c2c-e3bea1e8ae60
 
 $ErrorActionPreference = "Stop"
 
@@ -51,16 +61,21 @@ via Playwright — esse passo de PDF pode levar uns 8 minutos, dê um timeout
 de pelo menos 600000ms no Bash pra ele).
 
 Por fim, com os dois caches atualizados, rode em sequência:
+  venv/Scripts/python scripts/build_dashboard.py
   venv/Scripts/python scripts/enviar_email_geometrias.py
   venv/Scripts/python scripts/enviar_email_relatorios.py
 
-Esses dois scripts mandam um e-mail por cliente (um de geometrias, um de
-relatórios), cada um só pro(s) destinatário(s) daquele cliente — não é
-preciso fazer mais nada manualmente pra isso, nem publicar nada em lugar
-nenhum.
+Os dois últimos scripts mandam um e-mail por cliente (um de geometrias, um
+de relatórios), cada um só pro(s) destinatário(s) daquele cliente — não é
+preciso fazer mais nada manualmente pra isso.
 
-Se qualquer passo falhar (extração, geração de PDF ou envio de e-mail),
-pare e reporte o erro claramente — não tente workaround.
+Não tente publicar nem acessar a ferramenta Artifact — isso não roda nesta
+sessão headless, é feito manualmente depois, num terminal comum
+(scripts/publicar_dashboard.ps1) ou numa sessão ativa do Claude Code
+("republica o dashboard").
+
+Se qualquer passo falhar (extração, geração de PDF, build ou envio de
+e-mail), pare e reporte o erro claramente — não tente workaround.
 "@
 
 Write-Output "[$(Get-Date -Format o)] iniciando atualização diária..." | Tee-Object -FilePath $logFile -Append
