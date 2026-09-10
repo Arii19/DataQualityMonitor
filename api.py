@@ -21,10 +21,19 @@ import pandas as pd
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from email_utils import enviar_email
 from managervision_pdf import exportar_varios_pdf
 from smartbio_cache import CACHE_DIR, CLIENTES, OUTPUT_DIR
+
+# build de produção da tela React (frontend/dist, gerado por `npm run build`)
+# — servido pelo próprio FastAPI só quando existe, pra não quebrar o dev local
+# (`uvicorn api:app --reload`, sem build nenhum feito). É assim que o
+# dashboard remoto (scripts/iniciar_tela.ps1) fica com tela + API na mesma
+# origem/porta, sem precisar de CORS nem de outro processo só pra servir
+# estático.
+FRONTEND_DIST = Path(__file__).resolve().parent / "frontend" / "dist"
 
 app = FastAPI(title="Data Quality Monitor - Geometrias Duplicadas")
 
@@ -99,6 +108,12 @@ def _bate_filtro(item: dict, fazenda, usina, safra, talhao, percentual_minimo) -
         if (item.get("PercentualSobreposicaoGeral") or 0) < percentual_minimo:
             return False
     return True
+
+
+@app.get("/healthz")
+def healthz():
+    """Checagem simples de saúde da API — não toca em cache nem MCP."""
+    return {"ok": True}
 
 
 @app.get("/api/clientes")
@@ -278,3 +293,11 @@ def enviar_relatorios_por_email(cliente: str, arquivos: List[str] = Query(...)):
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 
     return {"enviado": True, "total": len(caminhos)}
+
+
+# Precisa vir por último: StaticFiles com html=True serve index.html tanto em
+# "/" quanto em qualquer rota desconhecida (fallback de SPA), então qualquer
+# rota de API declarada DEPOIS dele nunca seria alcançada — todo /api/* já
+# está registrado acima disso.
+if FRONTEND_DIST.exists():
+    app.mount("/", StaticFiles(directory=FRONTEND_DIST, html=True), name="frontend")

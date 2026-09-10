@@ -11,6 +11,8 @@ cache/managervision/*.json
 !cache/.gitkeep
 dist/
 logs/
+tools/
+tunnel_url.txt
 __pycache__/
 *.pyc
 .venv/

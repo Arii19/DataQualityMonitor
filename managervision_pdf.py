@@ -12,6 +12,23 @@ carregaria, e a impressão em PDF sai com os dados de verdade.
 Uma única conta (MANAGERVISION_USER/MANAGERVISION_PASSWORD no .env) vale
 pra todos os clientes/subdomínios smartbreeder.com.br — por isso a sessão é
 reaproveitada entre vários relatórios da mesma chamada, logando só uma vez.
+
+## Mídia de impressão
+
+Cada relatório do ManagerVision já vem com seu próprio CSS `@media print`
+(usado pelo botão "Exportar PDF" de dentro da própria página): esconde os
+botões de ação e às vezes define um `@page` com tamanho próprio. Por isso
+NÃO chamamos `page.emulate_media("screen")` antes de gerar o PDF — deixamos
+o Playwright usar a mídia "print" (comportamento padrão de `page.pdf()`),
+que já aplica esse CSS sozinho. `prefer_css_page_size` faz o tamanho de
+página respeitar o `@page` do relatório quando ele existe; quando não
+existe, cai no fallback A4 retrato passado como `format`/`landscape`.
+
+Só um PDF de uma página por relatório — sem clicar em aba nem mexer em
+filtro: sai com a aba/filtro padrão que já vem selecionado quando a página
+abre, igual ao que o usuário veria entrando na tela sem tocar em nada. Um
+relatório com várias abas (ex.: "Volumetria de Dados") só é capturado com a
+aba inicial (normalmente "Gráfico") — não itera pelas outras.
 """
 
 from pathlib import Path
@@ -22,7 +39,6 @@ from config import MANAGERVISION_USER, MANAGERVISION_PASSWORD
 
 TIMEOUT_MS = 30000
 VIEWPORT = {"width": 1600, "height": 1000}
-MARGEM_PDF = {"top": "10mm", "bottom": "10mm", "left": "8mm", "right": "8mm"}
 
 
 def _logar(page):
@@ -51,13 +67,12 @@ def _exportar_um(page, item, destino_dir: Path) -> Path:
     page.wait_for_timeout(2000)
 
     caminho = destino_dir / f"{item['chart_id']}.pdf"
-    page.emulate_media(media="screen")
     page.pdf(
         path=str(caminho),
-        format="A4",
-        landscape=True,
         print_background=True,
-        margin=MARGEM_PDF,
+        prefer_css_page_size=True,
+        format="A4",
+        landscape=False,
     )
     return caminho
 

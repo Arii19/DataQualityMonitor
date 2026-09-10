@@ -76,7 +76,15 @@ def _parse_geojson(valor):
     Queries/geometria_correta_por_safra.sql — o SQL Server não tem
     STAsGeoJSON() nativo, então essa consulta manda
     CONVERT(..., DadosSHP.STAsBinary(), 2), que cai aqui como uma string só
-    de dígitos hexadecimais)."""
+    de dígitos hexadecimais).
+
+    A partir de 2026-09-10 a coluna GeoJson passou a vir embrulhada num
+    objeto Feature (`{"type":"Feature","geometry":{...},...}`) em vez da
+    geometria pura (`{"type":"Polygon"/"MultiPolygon"/...}`) — mudança do
+    lado do smartbio, confirmada em 100% das linhas dos 9 clientes numa
+    mesma extração. shape() só entende o tipo de geometria bruto, então
+    desembrulha o Feature (pegando a chave "geometry") antes de passar pra
+    ele; se não for um Feature, segue como antes."""
     if not isinstance(valor, str):
         return None
     texto = valor.strip()
@@ -86,8 +94,11 @@ def _parse_geojson(valor):
         except Exception:
             return None
     try:
-        return shape(json.loads(valor))
-    except (TypeError, ValueError, json.JSONDecodeError):
+        dado = json.loads(valor)
+        if isinstance(dado, dict) and str(dado.get("type", "")).lower() == "feature":
+            dado = dado.get("geometry")
+        return shape(dado)
+    except (TypeError, ValueError, json.JSONDecodeError, AttributeError):
         return None
 
 
@@ -146,6 +157,22 @@ def carregar_bruto(pasta_cliente, cliente=None):
         ignore_index=True,
     )
     df = df.drop(columns=["_cliente"], errors="ignore")
+
+    # A extração via MCP já veio, em pelo menos uma ocasião (10/09), com toda
+    # linha duplicada literalmente (mesmo IDTalhao, Corte, Safra e GeoJson
+    # byte a byte) — não é duplicidade de negócio, é o mesmo registro
+    # aparecendo 2x (às vezes 4x) no CSV, provavelmente fan-out na extração
+    # do lado de CadastroDeAreas. Sem filtrar isso, o sjoin casa cada linha
+    # com sua própria cópia idêntica e infla monstruosamente a contagem de
+    # pares (chegou a inflar a Atvos de ~300 pra 17 mil "pares" nesse dia).
+    # Descartamos aqui, antes do cálculo, qualquer linha 100% idêntica a
+    # outra em todas as colunas — geometria (GeoJson) inclusa, então não
+    # arrisca remover duas linhas que só coincidem em tudo MENOS a forma.
+    antes = len(df)
+    df = df.drop_duplicates(ignore_index=True)
+    duplicadas = antes - len(df)
+    if duplicadas:
+        print(f"  {duplicadas} linha(s) duplicada(s) por completo (mesmo IDTalhao/Corte/Safra/GeoJson) descartada(s) da extração")
 
     df["IDTalhao"] = pd.to_numeric(df["IDTalhao"], errors="coerce").astype("Int64")
     df["Corte"] = pd.to_numeric(df["Corte"], errors="coerce")

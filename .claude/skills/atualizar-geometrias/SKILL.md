@@ -58,6 +58,22 @@ nome exato antes de seguir.
    é normal, não precisa dividir por usina — um `execute_query` por cliente
    dá conta.
 
+   ⚠️ **Não passe vários clientes de uma vez no parâmetro `clients` de uma
+   única chamada** (ex.: `clients: ["Atvos", "Cocal", ...]`) — em 10/09 isso
+   veio com **~99% das linhas duplicadas por completo** (mesmo IDTalhao,
+   Corte, Safra e GeoJson byte a byte) em todos os 8 clientes pedidos assim
+   de uma vez, inflando a Atvos de ~300 pra 17 mil "pares" só por sjoin
+   casando cada talhão com sua própria cópia idêntica. O único cliente
+   extraído sozinho nesse mesmo lote (CMAA, reextraído à parte por ter dado
+   erro no lote) veio 100% limpo — então o problema é do lote multi-cliente
+   em si (do lado do MCP), não da query nem da extração normal. Sempre uma
+   chamada por cliente (`clients: ["<Cliente>"]`), mesmo que várias em
+   paralelo no mesmo turno (ver item 3 abaixo). Como cinto de segurança
+   adicional, `smartbio_cache.py` (`carregar_bruto`) também descarta
+   sozinho qualquer linha 100% idêntica a outra antes de calcular
+   sobreposição — mas isso é defesa, não desculpa pra arriscar o lote de
+   novo.
+
 2. **Baixar o CSV** — `curl -sL -o raw/<Cliente>/dados.csv "<download_url>"`
    (crie a pasta `raw/<Cliente>/` se não existir). Isso substitui qualquer
    CSV antigo daquele cliente — não precisa limpar antes.

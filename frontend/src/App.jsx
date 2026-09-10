@@ -2,7 +2,11 @@ import { useCallback, useEffect, useState } from 'react'
 import './App.css'
 import GeometriaModal from './GeometriaModal'
 
-const API_URL = 'http://127.0.0.1:8001'
+// Em dev local (`npm run dev`), a API roda solta na 8001. No build de produção
+// (usado dentro do Docker, servido pelo próprio api.py), front e API saem do
+// mesmo container/origem — usar caminho relativo evita hardcode de host/porta
+// e faz o cookie de sessão do login Microsoft (mesmo domínio) funcionar.
+const API_URL = import.meta.env.PROD ? '' : 'http://127.0.0.1:8001'
 
 const FILTROS_INICIAIS = {
   fazenda: '',

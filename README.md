@@ -5,8 +5,8 @@ banco (indicando cadastro duplicado ou inconsistente), calcula o percentual
 de sobreposição de cada par, classifica o motivo mais provável (mesmo talhão
 físico com ciclo não fechado, fazenda cadastrada 2x, cadastro duplicado ou
 erro de digitalização de limite) e exibe o resultado em duas telas: uma
-local (React + FastAPI) e um dashboard remoto somente-leitura, publicado
-como link.
+local (React + FastAPI) e a mesma tela publicada via Cloudflare Tunnel, pra
+acesso de fora da rede local.
 
 ## Fonte de dado: smartbio via MCP
 
@@ -44,9 +44,10 @@ direto na tela. `app.py` mantém só as funções de cálculo reaproveitadas por
    lateral com os 9 clientes (total de pares e "gerado há Xh" de cada um),
    tabela com filtro, exportar Excel, enviar e-mail e um modal que desenha
    as duas geometrias de um par sobreposto ao clicar na linha.
-5. **Dashboard remoto** ([scripts/dashboard_template.html](scripts/dashboard_template.html)):
-   mesma experiência de visualização, sem backend e sem e-mail — publicado
-   como Claude Artifact pra acesso de fora da rede local (detalhes abaixo).
+5. **Dashboard remoto** ([scripts/iniciar_tela.ps1](scripts/iniciar_tela.ps1)):
+   mesmo build de produção do frontend, servido pela própria API (`api.py`
+   monta `frontend/dist` como estático) e exposto via Cloudflare Tunnel —
+   detalhes abaixo.
 
 `raw/` e `cache/` não entram no git (dado extraído e derivado, não código) —
 rodar `python smartbio_cache.py <Cliente>` depois de uma extração nova do
@@ -59,24 +60,29 @@ Claude é o que repovoa os dois.
 ├── app.py                    # funções de cálculo reaproveitadas por smartbio_cache.py:
 │                              #   intersect() (sjoin espacial), classificar_motivo(), salvar_excel()
 ├── smartbio_cache.py          # pipeline smartbio: lê raw/<cliente>/*.csv -> cache/<cliente>.json + Excel
-├── api.py                     # API FastAPI que serve cache/<cliente>.json pro front-end local
-├── config.py                  # variáveis de ambiente (e-mail/Azure — envio ainda não está em uso)
+├── api.py                     # API FastAPI que serve cache/<cliente>.json + a tela (build de produção) numa origem só
+├── config.py                  # variáveis de ambiente (e-mail/Azure, EMAIL_POR_CLIENTE)
+├── email_utils.py             # envio de e-mail via Microsoft Graph
+├── managervision_pdf.py       # exporta PDF dos relatórios ManagerVision via Playwright
 ├── requirements.txt           # dependências Python
+├── tools/
+│   └── cloudflared.exe        # binário nativo do túnel Cloudflare (baixado, não instalado — sem UAC)
 ├── Queries/
 │   └── geometria_correta_por_safra.sql  # consulta de referência com o join por safra (histórico do bug corrigido)
 ├── docs/
 │   └── especificacao_view_geometria_por_safra.md  # spec da correção aplicada nas views do smartbio
 ├── scripts/
-│   ├── atualizar_diario.ps1   # tarefa agendada do Windows: extração diária + regenera dist/dashboard.html
+│   ├── atualizar_diario.ps1   # tarefa agendada do Windows: extração diária + PDFs + e-mails automáticos
 │   ├── instalar_tarefa_agendada.ps1 / remover_tarefa_agendada.ps1
-│   ├── build_dashboard.py     # gera dist/dashboard.html a partir do cache/*.json mais recente
-│   ├── publicar_dashboard.ps1 # regenera dist/dashboard.html (publicar é sempre via Claude Code, ver abaixo)
-│   └── dashboard_template.html # front-end do dashboard remoto (HTML+JS sem build step)
+│   ├── build_managervision_pdfs.py    # gera os PDFs de todos os relatórios em cache/managervision/*.json
+│   ├── enviar_email_geometrias.py     # e-mail automático (por cliente) do Excel de duplicados
+│   ├── enviar_email_relatorios.py     # e-mail automático (por cliente) dos PDFs do ManagerVision
+│   ├── iniciar_tela.ps1               # sobe a tela+API+túnel Cloudflare (ver "Dashboard remoto" abaixo)
+│   └── instalar_tarefa_tela.ps1 / remover_tarefa_tela.ps1
 ├── raw/                       # CSV bruto extraído do smartbio por cliente (ignorado pelo git)
 ├── cache/                     # cache/<cliente>.json consumido pela API (ignorado pelo git)
-├── output/                    # Excel + relatórios de geometria suspeita, gerados a cada execução (ignorado pelo git)
-├── dist/                      # dashboard.html gerado, pronto pra publicar (ignorado pelo git)
-└── frontend/                  # interface local React (Vite)
+├── output/                    # Excel + PDFs de relatórios, gerados a cada execução (ignorado pelo git)
+└── frontend/                  # tela React (Vite) — mesmo build usado local e no dashboard remoto
     └── src/
         ├── App.jsx             # tela principal: barra de clientes, filtros, tabela, ações
         ├── GeometriaModal.jsx  # desenho SVG das duas geometrias de um par
@@ -122,6 +128,12 @@ MANAGERVISION_USER=
 MANAGERVISION_PASSWORD=
 ```
 
+`EMAIL_RECIPIENTS` é o destinatário **padrão**, usado por qualquer cliente
+sem regra própria. Pra mandar um cliente específico só pra alguém em
+particular (ex.: Cocal só pro Otávio), edite `EMAIL_POR_CLIENTE` em
+[config.py](config.py) — cliente ausente desse dicionário cai no
+`EMAIL_RECIPIENTS` do `.env`.
+
 ### 2. Frontend
 
 ```powershell
@@ -152,28 +164,49 @@ o cache do disco, não recalcula nada sozinho.
 > rode o uvicorn numa porta livre e ajuste `API_URL` em
 > [frontend/src/App.jsx](frontend/src/App.jsx).
 
-## Dashboard remoto (Artifact, somente leitura)
+## Dashboard remoto (Cloudflare Tunnel, sem Docker)
 
 Pra colegas de outras cidades/fora da rede local acessarem os mesmos dados
-sem precisar de VPN, backend rodando ou porta aberta: existe um segundo
-front-end, [scripts/dashboard_template.html](scripts/dashboard_template.html),
-publicado como Claude Artifact — link fixo e privado, compartilhável.
+sem VPN nem porta aberta no roteador: `scripts/iniciar_tela.ps1` builda a
+tela (`frontend/dist`), sobe o `uvicorn` (que serve a tela + a API na mesma
+porta — ver o mount de `StaticFiles` no final de `api.py`) e o túnel
+Cloudflare, tudo nativo no Windows (sem Docker/container nenhum —
+`tools/cloudflared.exe` é o binário baixado direto, sem instalador/UAC).
+`tools/` é ignorado pelo git — baixe uma vez, antes do primeiro
+`iniciar_tela.ps1`:
 
-- Mesma experiência da tela local (barra de clientes, filtro, tabela, modal
-  de geometria sobreposta, exportar Excel), **sem** o envio de e-mail — isso
-  continua só na tela local.
-- Sem backend: todo o dado (metadados + geometria, simplificada só nesse
-  artifact — `shapely.simplify` + arredondamento de coordenadas) fica
-  embutido no próprio HTML. Os 9 clientes somados ficam bem abaixo do limite
-  de 16MB de um artifact.
-- `dist/dashboard.html` é **regenerado sozinho, 1x/dia**, pela mesma tarefa
-  agendada do Windows que faz a extração ([scripts/atualizar_diario.ps1](scripts/atualizar_diario.ps1)).
-- **Publicar no link é sempre pedido numa conversa do Claude Code** — "atualiza
-  e republica o dashboard". A publicação em si não roda fora de uma sessão
-  interativa (nem agendada, nem via script solto), então não tem um comando
-  que você rode sozinha pra isso; `scripts/publicar_dashboard.ps1 -Rebuild`
-  só deixa `dist/dashboard.html` pronto no disco. O pedido no chat leva menos
-  de um minuto e não muda a URL, só o conteúdo.
+```powershell
+mkdir tools -Force
+curl.exe -L -o tools\cloudflared.exe https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe
+```
+
+```powershell
+.\scripts\iniciar_tela.ps1
+```
+
+O link público sai no console e fica salvo em `tunnel_url.txt`.
+
+- `cache/` e `output/` são lidos direto do disco — o mesmo
+  `atualizar_diario.ps1` que já roda todo dia (extração + PDFs + e-mails,
+  ver `scripts/enviar_email_geometrias.py`/`enviar_email_relatorios.py`)
+  continua escrevendo ali, e a tela reflete o dado mais novo sozinha, sem
+  rebuild nem restart de nada — não tem passo de "publicar" nenhum.
+- O link (`https://<algo>.trycloudflare.com`) muda toda vez que o processo
+  do túnel reinicia — é um "quick tunnel" gratuito, sem conta Cloudflare.
+  Pra um link fixo, precisa de um domínio numa conta Cloudflare (fora do
+  escopo de hoje).
+- Sem login: quem tem o link acessa — link privado, não listado.
+- **Pra rodar sozinho, sem precisar lembrar**: `scripts/instalar_tarefa_tela.ps1`
+  registra uma tarefa agendada que sobe tudo às 07:00 e revalida de hora em
+  hora o dia inteiro (o script é idempotente — mata a instância anterior
+  antes de subir de novo, então repetir não duplica processo nem conflita
+  porta). O ideal seria um gatilho "ao entrar no Windows", mas esse tipo foi
+  recusado neste ambiente (parece restrição de segurança contra persistência
+  automática) — se funcionar no seu, dá pra trocar por `/SC ONLOGON` no
+  script, mais simples.
+- Só funciona enquanto o notebook estiver ligado — se a máquina
+  desligar/hibernar, a tela cai (volta sozinha na próxima janela da tarefa,
+  não precisa religar nada na mão).
 
 ## API
 
