@@ -9,6 +9,7 @@ raw/
 cache/*.json
 cache/managervision/*.json
 !cache/.gitkeep
+cache_backup_*/
 dist/
 logs/
 __pycache__/
