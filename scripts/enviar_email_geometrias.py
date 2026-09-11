@@ -1,11 +1,10 @@
-"""Manda, pra cada cliente, um e-mail separado com o Excel de geometrias
-duplicadas mais recente (output/<cliente>_duplicados_*.xlsx), pro(s)
-destinatário(s) daquele cliente (config.EMAIL_POR_CLIENTE, com fallback pro
-EMAIL_RECIPIENTS padrão do .env). Cliente sem Excel gerado ainda é só
-avisado no resumo e pulado — não é erro.
+"""Manda, pra cada cliente, um e-mail com o Excel de geometrias duplicadas
+mais recente, pro(s) destinatário(s) daquele cliente (config.EMAIL_POR_CLIENTE,
+com fallback pro EMAIL_RECIPIENTS do .env). Cliente sem Excel é só avisado e
+pulado — não é erro.
 
-Roda automaticamente todo dia, logo depois de /atualizar-geometrias, dentro
-de scripts/atualizar_diario.ps1.
+Roda automaticamente todo dia, logo após /atualizar-geometrias, dentro de
+scripts/atualizar_diario.ps1.
 
 Rodar sem argumentos:
     python scripts/enviar_email_geometrias.py

@@ -1,34 +1,19 @@
 """Exportação em PDF dos relatórios do ManagerVision (Smartbio), via login
 automatizado com Playwright.
 
-Por que precisa de um navegador de verdade: cada relatório é uma SPA que
-busca os dados ao vivo via fetch() para rotas relativas do próprio domínio
-do cliente (ex.: /ManagerVision/Data/{query_id}), autenticadas pela sessão
-logada — abrir o HTML fora desse domínio/sessão (arquivo local, anexo de
-e-mail) sempre dá "Failed to fetch". Rodando com Playwright + login real,
-o navegador headless carrega a página exatamente como um usuário logado
-carregaria, e a impressão em PDF sai com os dados de verdade.
+Precisa de navegador de verdade: cada relatório é uma SPA que busca dados ao
+vivo via fetch() em rotas do domínio do cliente, autenticadas pela sessão
+logada — abrir o HTML fora dessa sessão dá "Failed to fetch". Uma única
+conta (MANAGERVISION_USER/PASSWORD no .env) serve todos os clientes; a
+sessão é reaproveitada entre relatórios da mesma chamada.
 
-Uma única conta (MANAGERVISION_USER/MANAGERVISION_PASSWORD no .env) vale
-pra todos os clientes/subdomínios smartbreeder.com.br — por isso a sessão é
-reaproveitada entre vários relatórios da mesma chamada, logando só uma vez.
+Não chamamos `page.emulate_media("screen")`: a mídia "print" padrão já
+aplica o CSS `@media print` próprio de cada relatório (esconde botões,
+define `@page` quando existe). `prefer_css_page_size` respeita esse `@page`;
+sem ele, cai no fallback A4 retrato.
 
-## Mídia de impressão
-
-Cada relatório do ManagerVision já vem com seu próprio CSS `@media print`
-(usado pelo botão "Exportar PDF" de dentro da própria página): esconde os
-botões de ação e às vezes define um `@page` com tamanho próprio. Por isso
-NÃO chamamos `page.emulate_media("screen")` antes de gerar o PDF — deixamos
-o Playwright usar a mídia "print" (comportamento padrão de `page.pdf()`),
-que já aplica esse CSS sozinho. `prefer_css_page_size` faz o tamanho de
-página respeitar o `@page` do relatório quando ele existe; quando não
-existe, cai no fallback A4 retrato passado como `format`/`landscape`.
-
-Só um PDF de uma página por relatório — sem clicar em aba nem mexer em
-filtro: sai com a aba/filtro padrão que já vem selecionado quando a página
-abre, igual ao que o usuário veria entrando na tela sem tocar em nada. Um
-relatório com várias abas (ex.: "Volumetria de Dados") só é capturado com a
-aba inicial (normalmente "Gráfico") — não itera pelas outras.
+Captura só a aba/filtro padrão de cada relatório (sem clicar em outras abas
+ou mexer em filtro).
 """
 
 from pathlib import Path
@@ -61,9 +46,7 @@ def _exportar_um(page, item, destino_dir: Path) -> Path:
             f"(URL final: {page.url}). Confira o usuário/senha no .env."
         )
 
-    # dá um tempo pras queries de dados (fetch ao vivo) terminarem depois do
-    # networkidle — alguns relatórios têm gráficos que renderizam com um
-    # pequeno atraso depois da resposta da query
+    # tempo extra pras queries/gráficos terminarem de renderizar após o networkidle
     page.wait_for_timeout(2000)
 
     caminho = destino_dir / f"{item['chart_id']}.pdf"
@@ -78,10 +61,9 @@ def _exportar_um(page, item, destino_dir: Path) -> Path:
 
 
 def exportar_varios_pdf(itens: list[dict], destino_dir) -> list[tuple[dict, Path]]:
-    """Exporta um PDF por item (cada item precisa de chart_id/titulo/url — o
-    formato salvo em cache/managervision/<cliente>.json). Loga uma vez só,
-    reaproveitando a sessão pros itens seguintes do mesmo domínio/cliente.
-    Retorna [(item, caminho_pdf), ...] na mesma ordem de entrada."""
+    """Exporta um PDF por item (chart_id/titulo/url, formato de
+    cache/managervision/<cliente>.json). Loga uma vez só, reaproveitando a
+    sessão. Retorna [(item, caminho_pdf), ...] na ordem de entrada."""
     if not MANAGERVISION_USER or not MANAGERVISION_PASSWORD:
         raise RuntimeError(
             "MANAGERVISION_USER / MANAGERVISION_PASSWORD não configurados no .env "

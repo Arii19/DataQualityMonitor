@@ -6,26 +6,18 @@ import geopandas
 
 
 def classificar_motivo(pares):
-    """`pares` precisa ter `PercentualSobreposto1`/`PercentualSobreposto2` (o
-    percentual de CADA talhão individualmente, não só o geral por
-    união/interseção) — `intersect()` já calcula os dois antes de chamar
-    esta função, mesmo que eles não sobrevivam na seleção final de colunas."""
+    """`pares` precisa ter `PercentualSobreposto1`/`PercentualSobreposto2`
+    (percentual de cada talhão individualmente, além do geral) — `intersect()`
+    já calcula os dois antes de chamar esta função."""
     mesma_fazenda = pares["Fazenda1"] == pares["Fazenda2"]
     mesmo_talhao = pares["Talhao1"] == pares["Talhao2"]
     mesmo_nome_fazenda = pares["NomeFazenda_1"] == pares["NomeFazenda_2"]
     quase_identico = pares["PercentualSobreposicaoGeral"] > 90
 
-    # um dos dois talhões está quase inteiro dentro do outro (>90% da área
-    # DELE, não da união), mesmo que o percentual geral seja bem menor —
-    # sinal de que um é um talhão menor (ex.: sub-talhão/variedade em parte
-    # da área) registrado dentro do talhão maior, não um erro de limite
-    # entre vizinhos independentes. Confirmado em dados reais (Atvos): esse
-    # padrão aparece consistentemente com percentual geral perto de frações
-    # "redondas" (~50%, por exemplo, quando o menor cobre metade do maior),
-    # muitas vezes com o menor sendo um MultiPolygon de várias partes
-    # espalhadas dentro do Polygon maior — mas o critério usado aqui
-    # (percentual individual, não o tipo de geometria) captura o mesmo sinal
-    # de forma mais direta e também pega casos Polygon×Polygon equivalentes.
+    # um dos talhões está quase inteiro dentro do outro (>90% da área DELE,
+    # não da união) — sinal de subdivisão (ex.: sub-talhão registrado dentro
+    # do maior), não erro de limite entre vizinhos. Confirmado em dados reais
+    # (Atvos).
     contido = (pares["PercentualSobreposto1"] > 90) | (pares["PercentualSobreposto2"] > 90)
 
     condicoes = [
@@ -46,40 +38,33 @@ def classificar_motivo(pares):
 
 
 def intersect(df):
-    """Retorna os pares de talhões cuja área realmente se sobrepõe (contato
-    apenas na borda, sem área/linha em comum, é descartado), já com o
-    percentual de sobreposição de cada talhão e da área conjunta.
-
-    É o equivalente em Python do self join com bounding box + STIntersects/
-    STIntersection/STUnion feito em SQL: em vez do bbox manual, usa o índice
-    espacial do GeoPandas (sjoin) pra achar candidatos, e só depois calcula
-    área/interseção/união apenas para esses candidatos — por isso é bem mais
-    leve que rodar a query pesada direto no banco."""
+    """Retorna os pares de talhões cuja área realmente se sobrepõe (contato só
+    na borda é descartado), com o percentual de sobreposição de cada talhão
+    e da área conjunta. Equivale ao self join com bbox + STIntersects/
+    STIntersection/STUnion do SQL, mas usa o índice espacial do GeoPandas
+    (sjoin) pra achar candidatos antes de calcular área — mais leve."""
     gdf = geopandas.GeoDataFrame(
         df.drop(columns=["DadosSHP"]),
-        # o SQL já manda a geometria em binário (STAsBinary/WKB) em vez de texto
-        # (STAsText/WKT): é bem mais compacto de trafegar e muito mais rápido de
-        # parsear (WKB não precisa converter cada coordenada de texto pra float)
+        # geometria vem em WKB (STAsBinary), não WKT: mais compacto e rápido de parsear
         geometry=geopandas.GeoSeries.from_wkb(df["DadosSHP"]),
     ).reset_index().rename(columns={"index": "id_geom"})
 
     pares = geopandas.sjoin(gdf, gdf, predicate="intersects", lsuffix="1", rsuffix="2")
 
-    # remove o cruzamento de uma geometria com ela mesma e os pares
-    # duplicados (A x B e B x A)
+    # remove auto-cruzamento e pares duplicados (A×B e B×A)
     pares = pares[pares["id_geom_1"] < pares["id_geom_2"]]
 
     geom_por_id = gdf.set_index("id_geom").geometry
     geom_1 = geom_por_id.loc[pares["id_geom_1"]].reset_index(drop=True)
     geom_2 = geom_por_id.loc[pares["id_geom_2"]].reset_index(drop=True)
 
-    # remove contato que é só "encostar" na borda, sem sobreposição real
+    # remove contato só na borda, sem sobreposição real
     tem_sobreposicao_real = ~geom_1.touches(geom_2).to_numpy()
     pares = pares[tem_sobreposicao_real].reset_index(drop=True)
     geom_1 = geom_1[tem_sobreposicao_real].reset_index(drop=True)
     geom_2 = geom_2[tem_sobreposicao_real].reset_index(drop=True)
 
-    # equivalente ao STIntersection(...).STArea() / STUnion(...).STArea() do SQL
+    # equivale a STIntersection(...).STArea() / STUnion(...).STArea() do SQL
     area_1 = geom_1.area
     area_2 = geom_2.area
     area_intersecao = geom_1.intersection(geom_2).area
@@ -89,16 +74,12 @@ def intersect(df):
     pares["PercentualSobreposto2"] = area_intersecao / area_2 * 100
     pares["PercentualSobreposicaoGeral"] = area_intersecao / area_uniao * 100
 
-    # equivalente ao WHERE PercentualSobreposicaoGeral <> 0.00 and > 0.20 do SQL
+    # equivale a WHERE PercentualSobreposicaoGeral <> 0.00 and > 0.20 do SQL
     pares = pares[pares["PercentualSobreposicaoGeral"] > 1.0]
 
-    # geometria de cada talhão (formato GeoJSON), pra desenhar as duas
-    # geometrias na tela quando o usuário selecionar um par na interface.
-    # usa lista (não .apply numa GeoSeries) de propósito: o resultado é um
-    # dict comum (__geo_interface__), e o geopandas às vezes reconhece esses
-    # dicts como geometria de verdade quando atribuídos via GeoSeries.apply,
-    # o que quebra to_json() depois achando que ainda tem uma coluna de
-    # geometria ativa.
+    # geometria de cada talhão (GeoJSON), pra desenhar na tela. Usa lista, não
+    # .apply numa GeoSeries: senão o geopandas confunde o dict com geometria
+    # de verdade e quebra o to_json() depois.
     pares["Geometria1"] = [g.__geo_interface__ for g in geom_1.loc[pares.index]]
     pares["Geometria2"] = [g.__geo_interface__ for g in geom_2.loc[pares.index]]
 
@@ -134,7 +115,7 @@ def salvar_excel(pares, pasta_saida="output"):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     caminho_arquivo = pasta_saida / f"geometrias_duplicadas_{timestamp}.xlsx"
 
-    # as colunas de geometria (GeoJSON) são só pra tela; não fazem sentido numa célula do Excel
+    # colunas de geometria são só pra tela; não cabem numa célula do Excel
     colunas_geometria = ["Geometria1", "Geometria2"]
     pares_para_excel = pares.drop(columns=colunas_geometria, errors="ignore")
     pares_para_excel.to_excel(caminho_arquivo, index=False, sheet_name="Duplicados")

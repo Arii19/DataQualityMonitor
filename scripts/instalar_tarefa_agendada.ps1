@@ -1,11 +1,8 @@
-﻿# Registra a tarefa agendada do Windows que roda a atualização diária
-# (scripts/atualizar_diario.ps1 — geometrias duplicadas + relatórios e PDFs
-# do ManagerVision + rebuild do dashboard + e-mail de aviso) todo dia às
-# 07:55, hora local.
-# Rode isso uma vez, manualmente, num PowerShell comum (não precisa admin,
-# a tarefa fica só pro seu usuário).
+﻿# Registra a tarefa agendada do Windows que roda scripts/atualizar_diario.ps1
+# todo dia às 07:55, hora local. Rode uma vez, manualmente, num PowerShell
+# comum (não precisa admin).
 #
-# Reexecutar este script atualiza a tarefa existente (SchTasks /Create /F).
+# Reexecutar atualiza a tarefa existente (SchTasks /Create /F).
 # Pra remover: scripts/remover_tarefa_agendada.ps1
 
 $ErrorActionPreference = "Stop"

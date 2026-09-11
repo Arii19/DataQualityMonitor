@@ -1,9 +1,8 @@
-"""Gera (em lote) o PDF de todos os relatórios do ManagerVision já em cache
+"""Gera em lote o PDF de todos os relatórios do ManagerVision em cache
 (cache/managervision/<cliente>.json), um cliente por vez — login uma vez por
-cliente/domínio, reaproveitado pros relatórios seguintes daquele cliente.
-
-Usado como preparo pro embed no Artifact (build_dashboard.py): aqui só
-gera e mede os arquivos em output/managervision_pdf/<cliente>/<chart_id>.pdf.
+cliente, reaproveitado pros relatórios seguintes. Preparo pro embed no
+Artifact (build_dashboard.py): só gera e mede os PDFs em
+output/managervision_pdf/<cliente>/<chart_id>.pdf.
 
 Rodar com:
     python scripts/build_managervision_pdfs.py

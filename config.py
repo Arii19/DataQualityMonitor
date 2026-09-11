@@ -15,12 +15,9 @@ EMAIL_RECIPIENTS = [
 ]
 EMAIL_SUBJECT = os.getenv("EMAIL_SUBJECT", "Relatório de Geometrias Duplicadas")
 
-# Destinatários específicos por cliente (usina) pros e-mails automáticos
-# diários de geometrias/relatórios (scripts/enviar_email_geometrias.py e
-# scripts/enviar_email_relatorios.py). Cliente que não aparece aqui cai no
-# default: todo mundo do EMAIL_RECIPIENTS do .env. A ideia é que, conforme
-# cada usina definir seu próprio responsável, essa lista vá crescendo até
-# cobrir os 9 clientes de smartbio_cache.CLIENTES.
+# Destinatários por cliente pros e-mails diários automáticos (scripts/
+# enviar_email_geometrias.py e enviar_email_relatorios.py). Cliente ausente
+# cai no default: EMAIL_RECIPIENTS do .env.
 EMAIL_POR_CLIENTE = {
     "Cocal": ["otavio.almeida@smartbreeder.com.br"],
     "Atvos": ["ariane.rodrigues@smartbreeder.com.br"],
@@ -28,12 +25,11 @@ EMAIL_POR_CLIENTE = {
 
 
 def destinatarios_do_cliente(cliente: str) -> list[str]:
-    """Devolve o(s) destinatário(s) específico(s) de um cliente (EMAIL_POR_CLIENTE),
-    ou o EMAIL_RECIPIENTS padrão do .env se o cliente não tiver regra própria."""
+    """Destinatário(s) do cliente (EMAIL_POR_CLIENTE), ou EMAIL_RECIPIENTS padrão."""
     return EMAIL_POR_CLIENTE.get(cliente, EMAIL_RECIPIENTS)
 
 
-# login usado pra autenticar via Playwright nos relatórios do ManagerVision
-# (mesma conta funciona em todos os clientes/subdomínios smartbreeder.com.br)
+# login pra autenticar via Playwright nos relatórios do ManagerVision
+# (mesma conta serve todos os clientes/subdomínios smartbreeder.com.br)
 MANAGERVISION_USER = os.getenv("MANAGERVISION_USER")
 MANAGERVISION_PASSWORD = os.getenv("MANAGERVISION_PASSWORD")

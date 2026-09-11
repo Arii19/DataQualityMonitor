@@ -1,10 +1,9 @@
-"""Envio de e-mail via Microsoft Graph, usando o fluxo client credentials
-(app-only) do Azure AD — sem precisar de login interativo de usuário.
+"""Envio de e-mail via Microsoft Graph, com client credentials (app-only) do
+Azure AD — sem login interativo.
 
-Requer, no .env: AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET
-(credenciais do app registrado no Azure AD, com a permissão de aplicativo
-Mail.Send consentida pelo administrador do tenant) e EMAIL_SENDER (a caixa
-que aparece como remetente — precisa ser uma caixa real do tenant).
+Requer no .env: AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET (app
+registrado no Azure AD, com permissão Mail.Send consentida pelo admin do
+tenant) e EMAIL_SENDER (caixa real do tenant, usada como remetente).
 """
 
 import base64
@@ -98,11 +97,9 @@ def _enviar_mensagem(assunto, corpo, destinatarios, anexos=None):
 
 
 def enviar_email(caminho_arquivo, assunto=None, corpo=None, destinatarios=None):
-    """Envia um ou mais arquivos por e-mail via Microsoft Graph, todos num só
-    e-mail (um anexo por arquivo). Aceita um caminho só ou uma lista de
-    caminhos — é o que permite mandar vários clientes juntos. Usa
-    remetente/assunto/destinatários do .env por padrão; qualquer um pode ser
-    sobrescrito por parâmetro."""
+    """Envia um ou mais arquivos anexados num único e-mail (aceita um caminho
+    ou lista). Usa remetente/assunto/destinatários do .env por padrão,
+    sobrescrevíveis por parâmetro."""
     caminhos = [caminho_arquivo] if isinstance(caminho_arquivo, (str, Path)) else list(caminho_arquivo)
     if not caminhos:
         raise ValueError("Nenhum arquivo pra anexar")
@@ -111,9 +108,8 @@ def enviar_email(caminho_arquivo, assunto=None, corpo=None, destinatarios=None):
 
 
 def enviar_email_texto(assunto=None, corpo=None, destinatarios=None):
-    """Envia um e-mail só de texto, sem anexo — usado pra mandar links (ex.:
-    relatórios do ManagerVision, que dependem da sessão/domínio do cliente
-    pra carregar dados e por isso não podem ser enviados como HTML anexado)."""
+    """Envia um e-mail só de texto, sem anexo (ex.: links do ManagerVision,
+    que dependem da sessão/domínio do cliente pra carregar dados)."""
     return _enviar_mensagem(assunto, corpo, destinatarios)
 
 

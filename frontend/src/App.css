@@ -139,9 +139,7 @@
 }
 
 .pagina {
-  /* sem largura máxima fixa: usa o espaço disponível na tela, então a tabela
-     (que tende a crescer conforme mais colunas são adicionadas) tem chance de
-     caber sem cortar dado nem precisar rolar horizontalmente */
+  /* sem largura máxima: usa o espaço disponível pra tabela caber sem rolar */
   flex: 1 1 auto;
   min-width: 0;
   width: 100%;

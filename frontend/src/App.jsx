@@ -32,7 +32,7 @@ function temaInicial() {
     const salvo = localStorage.getItem('tema')
     if (salvo === 'light' || salvo === 'dark') return salvo
   } catch {
-    // localStorage indisponível (ex.: navegação privada) — cai pro padrão do sistema
+    // localStorage indisponível — cai pro padrão do sistema
   }
   return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 }
@@ -143,7 +143,7 @@ export default function App() {
       const dados = await resposta.json()
       setRelatorios(dados.itens)
     } catch {
-      // painel de relatórios é opcional — se falhar, só mostra vazio em vez de quebrar a tela
+      // opcional: se falhar, só mostra vazio
       setRelatorios([])
     }
   }, [])

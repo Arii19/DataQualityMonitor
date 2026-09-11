@@ -1,21 +1,15 @@
-"""Gera o artifact estático (dashboard.html) a partir dos cache/<cliente>.json.
-
-Parte do fluxo de publicação pra pessoas de fora da rede local (ver
-README/pedido do usuário): como o artifact publicado não tem acesso a
-nenhum backend, todo o dado (metadados + geometria) fica embutido no
-próprio HTML como JSON. As geometrias são simplificadas (shapely.simplify
-+ arredondamento de coordenadas) só pra esse embed — o cache original,
-usado pela tela local (React+FastAPI) e por qualquer recomputo, não é
-alterado. É isso que faz o embed caber no limite de 16MB de um artifact:
-os 9 clientes somados, na resolução original, passam de 30MB; simplificados
-pra visualização ficam por volta de 3MB.
+"""Gera o artifact estático (dashboard.html) a partir dos cache/<cliente>.json,
+pra publicação fora da rede local: como o artifact não acessa backend, todo
+o dado fica embutido no HTML como JSON. Geometrias são simplificadas
+(shapely.simplify + arredondamento) só pra esse embed, sem alterar o cache
+original — os 9 clientes somados passam de 30MB na resolução original e
+ficam por volta de 3MB simplificados, cabendo no limite de 16MB do artifact.
 
 Rodar depois de recomputar os caches (`python smartbio_cache.py`):
 
     python scripts/build_dashboard.py
 
-Gera dist/dashboard.html, pronto pra publicar/republicar como Artifact
-(sempre no mesmo link — republicar só troca o conteúdo).
+Gera dist/dashboard.html, pronto pra publicar/republicar (sempre no mesmo link).
 """
 
 import base64
@@ -36,12 +30,10 @@ DIST_PATH = DIST_DIR / "dashboard.html"
 
 CLIENTES = ["Atvos", "SantaAdelia", "Cevasa", "CMAA", "Guaira", "GQQ", "JPA", "Cocal", "IPE"]
 
-# limite real do Artifact é 16MB; deixa margem de segurança pro overhead de
-# JS/CSS do template e pra variação de codificação — mira em 15MB no total
+# limite real do Artifact é 16MB; mira em 15MB pra deixar margem de segurança
 TAMANHO_MAXIMO_ARTIFACT_MB = 15
 
-# colunas mantidas no embed (sem Geometria1/2 crua — essa é substituída pela
-# versão simplificada logo abaixo)
+# colunas mantidas no embed (Geometria1/2 é substituída pela versão simplificada)
 COLUNAS = [
     "id", "AnoSafra1", "AnoSafra2", "Fazenda1", "Fazenda2", "Bloco1", "Bloco2",
     "Talhao1", "Talhao2", "IDTalhao1", "IDTalhao2", "Corte1", "Corte2",
@@ -56,9 +48,8 @@ def _arredondar(coords, ndigits=6):
 
 
 def _simplificar(geometria_dict):
-    """Reduz a quantidade de vértices pra visualização (algumas geometrias
-    de talhão real passam de 30 mil pontos) sem mudar a forma perceptível —
-    só usado no desenho do artifact, nunca no cálculo de sobreposição."""
+    """Reduz vértices pra visualização (algumas geometrias passam de 30 mil
+    pontos) sem mudar a forma perceptível — só pro desenho, nunca pro cálculo."""
     try:
         geom = shape(geometria_dict)
     except Exception:
@@ -108,10 +99,8 @@ def montar_dados():
 
 
 def montar_relatorios():
-    """Monta os metadados dos relatórios do ManagerVision (título/descrição/
-    link) por cliente, e devolve também a lista achatada de PDFs já gerados
-    em disco (output/managervision_pdf/<cliente>/<chart_id>.pdf) — usada
-    depois pra decidir quais cabem embutidos no Artifact."""
+    """Monta os metadados dos relatórios por cliente e a lista achatada de
+    PDFs já em disco, usada depois pra decidir quais cabem no Artifact."""
     relatorios_por_cliente = {}
     gerado_em = None
     candidatos_pdf = []  # (entrada_dict, caminho_pdf, tamanho_bytes)
@@ -148,8 +137,8 @@ def montar_relatorios():
 
 def _preencher_pdfs_no_orcamento(candidatos_pdf, bytes_ja_usados):
     """Embute o PDF (base64) de cada relatório, do menor pro maior, até
-    estourar TAMANHO_MAXIMO_ARTIFACT_MB — os que não couberem ficam só com
-    link "Visualizar" (pdfBase64 = None). Retorna (incluidos, excluidos)."""
+    estourar TAMANHO_MAXIMO_ARTIFACT_MB — o resto fica só com link.
+    Retorna (incluidos, excluidos)."""
     limite_bytes = TAMANHO_MAXIMO_ARTIFACT_MB * 1024 * 1024
     orcamento_pdf = max(0, limite_bytes - bytes_ja_usados)
 
@@ -179,8 +168,7 @@ def build():
     if "__DADOS_JSON__" not in template:
         raise RuntimeError(f"Placeholder __DADOS_JSON__ não encontrado em {TEMPLATE_PATH}")
 
-    # mede o tamanho de tudo MENOS os PDFs (geometrias + template + demais
-    # metadados) pra saber quanto orçamento sobra pros PDFs embutidos
+    # mede o tamanho de tudo menos os PDFs, pra saber o orçamento que sobra
     baseline_html = template.replace("__DADOS_JSON__", json.dumps(dados, ensure_ascii=False))
     bytes_sem_pdfs = len(baseline_html.encode("utf-8"))
 

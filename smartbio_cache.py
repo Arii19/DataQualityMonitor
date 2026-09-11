@@ -1,23 +1,15 @@
-"""Gera o cache de sobreposições de geometria a partir de dados extraídos do
-smartbio (MCP), um cliente por vez.
+"""Gera o cache de sobreposições de geometria a partir de CSVs extraídos do
+smartbio (MCP), um cliente por vez — só uma sessão do Claude com MCP
+consegue consultar o smartbio; api.py não tem essa credencial.
 
-Este script processa CSVs já extraídos do smartbio para cada cliente —
-porque hoje só uma sessão do Claude com o MCP consegue rodar a consulta
-contra o smartbio; o backend (api.py) não tem essa credencial. app.py
-mantém só as funções reaproveitadas aqui (intersect/classificar_motivo),
-sem nenhuma conexão de banco própria. O fluxo é:
-
-    1. Alguém pede pro Claude "atualizar o cliente X" (ou "todos").
-    2. O Claude consulta vw_bree_full.CadastroDeAreas + Geometria pro cliente
-       via MCP smartbio e salva o CSV bruto em raw/<cliente>/*.csv.
-    3. Este script lê esse(s) CSV(s), calcula as sobreposições (mesma lógica
-       de app.py.intersect) e classifica o motivo (app.py.classificar_motivo),
-       e grava o resultado em cache/<cliente>.json + output/<cliente>_duplicados.xlsx.
-    4. api.py serve os dados direto de cache/<cliente>.json — sem tocar no
-       smartbio nem no SQL Server.
+Fluxo: Claude extrai vw_bree_full.CadastroDeAreas+Geometria via MCP para
+raw/<cliente>/*.csv -> este script calcula sobreposições (lógica de
+app.py.intersect/classificar_motivo) e grava cache/<cliente>.json +
+output/<cliente>_duplicados.xlsx -> api.py serve do cache, sem tocar no
+smartbio/SQL Server.
 
 Rodar sozinho: `python smartbio_cache.py <Cliente> [<raw_dir>]` ou sem
-argumentos pra processar todos os clientes que tiverem uma pasta em raw/.
+argumentos pra processar todos os clientes com pasta em raw/.
 """
 
 import json
@@ -41,22 +33,16 @@ OUTPUT_DIR = BASE_DIR / "output"
 
 CLIENTES = ["Atvos", "SantaAdelia", "Cevasa", "CMAA", "Guaira", "GQQ", "JPA", "Cocal", "IPE"]
 
-# Histórico: a view vw_bree_full.Geometria não amarrava geometria por safra
-# — podia devolver "uma" geometria por IDTalhao de uma safra/corte anterior,
-# mesmo quando o talhão não tinha geometria pra safra ativa (ver
+# Histórico: vw_bree_full.Geometria não amarrava geometria por safra (ver
 # docs/especificacao_view_geometria_por_safra.md). _filtrar_geometria_suspeita()
-# comparava a área oficial (AreaTotal) com a área calculada do GeoJson como
-# mitigação pra esse problema — mas causava falsos negativos (ex.: GQQ,
-# talhão 758: AreaTotal=0 e era uma duplicidade real, seria descartada por
-# engano). Com o join por IDTalhao+IDSafra corrigido na extração (a
-# geometria certa da safra ativa já vem garantida na origem), essa
-# mitigação ficou desnecessária e só arriscada — está desativada de
-# propósito, mesmo padrão de _filtrar_por_safra_ativa() logo abaixo.
+# comparava AreaTotal x área do GeoJson como mitigação, mas causava falso
+# negativo (GQQ, talhão 758). Com o join IDTalhao+IDSafra corrigido na
+# extração, a mitigação ficou desnecessária — desativada de propósito, assim
+# como _filtrar_por_safra_ativa() logo abaixo.
 
 
-# caracteres de controle que o Excel/openpyxl recusa em célula de texto —
-# já apareceu em NomeFazenda vindo do smartbio (dado sujo na origem, não é
-# erro nosso), então limpamos antes de qualquer to_excel.
+# caracteres de controle que o Excel/openpyxl recusam em célula de texto —
+# já apareceu em NomeFazenda vindo do smartbio (dado sujo na origem).
 _CARACTERES_ILEGAIS_EXCEL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
 
 
@@ -71,20 +57,14 @@ def _sanitizar_para_excel(df):
 
 
 def _parse_geojson(valor):
-    """Aceita tanto GeoJSON de texto (extração normal via smartbio) quanto
-    WKB em hex (extração corrigida direto do banco, via
-    Queries/geometria_correta_por_safra.sql — o SQL Server não tem
-    STAsGeoJSON() nativo, então essa consulta manda
-    CONVERT(..., DadosSHP.STAsBinary(), 2), que cai aqui como uma string só
-    de dígitos hexadecimais).
+    """Aceita GeoJSON de texto (extração normal) ou WKB em hex (extração via
+    Queries/geometria_correta_por_safra.sql, já que o SQL Server não tem
+    STAsGeoJSON()).
 
-    A partir de 2026-09-10 a coluna GeoJson passou a vir embrulhada num
-    objeto Feature (`{"type":"Feature","geometry":{...},...}`) em vez da
-    geometria pura (`{"type":"Polygon"/"MultiPolygon"/...}`) — mudança do
-    lado do smartbio, confirmada em 100% das linhas dos 9 clientes numa
-    mesma extração. shape() só entende o tipo de geometria bruto, então
-    desembrulha o Feature (pegando a chave "geometry") antes de passar pra
-    ele; se não for um Feature, segue como antes."""
+    Desde 2026-09-10 a coluna GeoJson vem embrulhada num objeto Feature
+    (`{"type":"Feature","geometry":{...}}`) em vez da geometria pura —
+    mudança do lado do smartbio. shape() só entende geometria pura, então
+    desembrulha o Feature antes de passar pra ele."""
     if not isinstance(valor, str):
         return None
     texto = valor.strip()
@@ -103,49 +83,34 @@ def _parse_geojson(valor):
 
 
 def _filtrar_por_safra_ativa(df):
-    """DESATIVADA — não exclui nada, só devolve df intacto (mantida pra não
-    quebrar a assinatura usada em carregar_bruto).
+    """DESATIVADA — devolve df intacto (mantida só pra não quebrar a
+    assinatura usada em carregar_bruto).
 
-    Tentativa anterior: vw_bree_full.Geometria agora expõe idSafra, e a
-    ideia era comparar com a moda (valor mais frequente) do lote pra achar
-    geometria de safra errada — funcionou pro caso isolado dos talhões
-    674/1037 do GQQ, mas se mostrou **insegura em geral**: vários clientes
-    (Cocal, GQQ) têm DUAS populações de idSafra grandes e comparáveis ao
-    mesmo tempo (cortes/ciclos diferentes legitimamente ativos em paralelo,
-    não uma maioria "certa" com poucos outliers "errados"). Testado na
-    Cocal: idSafra 38 (10.927 talhões) e 37 (10.197) — a moda excluiria
-    quase metade dos talhões, incluindo muitos genuinamente ativos. No GQQ,
-    a moda (idSafra=14, 652 talhões) teria excluído o idSafra=15 (523
-    talhões) por inteiro — mas o talhão 6027 (idSafra=15) é confirmadamente
-    ativo (validado direto no banco). Não achamos nenhum agrupamento nos
-    dados (nem por Corte) que separe com segurança "safra ativa" de "safra
-    velha" só com o que a extração smartbio traz — precisaria do join
-    estrito por HistDetalhado (só possível com acesso direto ao banco, ver
-    Queries/geometria_correta_por_safra.sql), que não muda por cliente.
-    Retorna (df, df vazio) sempre, até existir um critério seguro."""
+    Tentativa anterior: comparar idSafra com a moda do lote pra achar
+    geometria de safra errada. Insegura em geral — Cocal e GQQ têm duas
+    populações de idSafra legitimamente ativas em paralelo (cortes/ciclos
+    diferentes), então a moda excluiria talhões ativos de verdade (ex.:
+    talhão 6027 do GQQ, confirmado ativo no banco). Precisaria do join
+    estrito por HistDetalhado (só com acesso direto ao banco, ver
+    Queries/geometria_correta_por_safra.sql). Retorna (df, vazio) até existir
+    um critério seguro."""
     return df, df.iloc[0:0].copy()
 
 
 def _filtrar_geometria_suspeita(df):
-    """DESATIVADA — não exclui/sinaliza nada, só devolve (df, vazio, vazio)
-    (mantida pra não quebrar a assinatura usada em carregar_bruto).
+    """DESATIVADA — devolve (df, vazio, vazio) (mantida só pra não quebrar a
+    assinatura usada em carregar_bruto).
 
-    Comparava a área do GeoJson com a AreaTotal oficial pra achar geometria
-    provavelmente de outra safra/corte — mitigação pro problema descrito no
-    comentário de _filtrar_por_safra_ativa() (a view de geometria não
-    amarrava por safra). Causava falso negativo: no GQQ, o talhão 758 tinha
-    AreaTotal=0 (não preenchida) mas geometria correta de uma duplicidade
-    real — teria sido descartado por engano pela regra de "AreaTotal
-    zerada". Com o join por IDTalhao+IDSafra corrigido na extração, a
-    geometria certa já vem garantida na origem — essa comparação por área
-    ficou redundante e só oferece risco de derrubar duplicidade real de
-    novo, então foi desativada."""
+    Comparava área do GeoJson com AreaTotal oficial pra achar geometria de
+    outra safra/corte, mitigando o problema descrito em
+    _filtrar_por_safra_ativa(). Causava falso negativo (GQQ, talhão 758:
+    AreaTotal=0 mas duplicidade real). Com o join IDTalhao+IDSafra corrigido
+    na extração, ficou redundante e só arriscada — desativada."""
     return df, df.iloc[0:0].copy(), df.iloc[0:0].copy()
 
 
 def carregar_bruto(pasta_cliente, cliente=None):
-    """Lê todos os CSVs extraídos do smartbio pra um cliente (pode ser mais
-    de um arquivo, se a extração foi feita em partes)."""
+    """Lê todos os CSVs extraídos do smartbio pra um cliente (pode ser mais de um arquivo)."""
     pasta_cliente = Path(pasta_cliente)
     cliente = cliente or pasta_cliente.name
     arquivos = sorted(pasta_cliente.glob("*.csv"))
@@ -158,16 +123,11 @@ def carregar_bruto(pasta_cliente, cliente=None):
     )
     df = df.drop(columns=["_cliente"], errors="ignore")
 
-    # A extração via MCP já veio, em pelo menos uma ocasião (10/09), com toda
-    # linha duplicada literalmente (mesmo IDTalhao, Corte, Safra e GeoJson
-    # byte a byte) — não é duplicidade de negócio, é o mesmo registro
-    # aparecendo 2x (às vezes 4x) no CSV, provavelmente fan-out na extração
-    # do lado de CadastroDeAreas. Sem filtrar isso, o sjoin casa cada linha
-    # com sua própria cópia idêntica e infla monstruosamente a contagem de
-    # pares (chegou a inflar a Atvos de ~300 pra 17 mil "pares" nesse dia).
-    # Descartamos aqui, antes do cálculo, qualquer linha 100% idêntica a
-    # outra em todas as colunas — geometria (GeoJson) inclusa, então não
-    # arrisca remover duas linhas que só coincidem em tudo MENOS a forma.
+    # A extração via MCP já veio (10/09) com linhas duplicadas literalmente
+    # (mesmo IDTalhao/Corte/Safra/GeoJson), provável fan-out em
+    # CadastroDeAreas — não filtrar isso infla a contagem de pares (chegou a
+    # inflar a Atvos de ~300 pra 17 mil "pares"). Descarta linhas 100%
+    # idênticas em todas as colunas, geometria inclusa.
     antes = len(df)
     df = df.drop_duplicates(ignore_index=True)
     duplicadas = antes - len(df)
@@ -222,11 +182,9 @@ def carregar_bruto(pasta_cliente, cliente=None):
 
 
 def calcular_sobreposicoes(df, cliente):
-    """Mesma lógica de app.py.intersect(), adaptada pras colunas do
-    smartbio (CadastroDeAreas usa código de fazenda/talhão em vez dos nomes
-    de coluna do SQL Server direto). `cliente` só entra numa coluna no
-    resultado final, pra identificar a origem quando o Excel for anexado
-    junto com o de outros clientes num mesmo e-mail."""
+    """Mesma lógica de app.py.intersect(), adaptada pras colunas do smartbio
+    (CadastroDeAreas usa código de fazenda/talhão). `cliente` só entra como
+    coluna no resultado, pra identificar a origem no Excel multi-cliente."""
     gdf = geopandas.GeoDataFrame(
         df.drop(columns=["GeoJson"]), geometry="geometry"
     ).reset_index().rename(columns={"index": "id_geom"})
@@ -252,17 +210,13 @@ def calcular_sobreposicoes(df, cliente):
     pares["PercentualSobreposto2"] = area_intersecao / area_2 * 100
     pares["PercentualSobreposicaoGeral"] = area_intersecao / area_uniao * 100
 
-    # equivalente ao WHERE PercentualSobreposicaoGeral <> 0.00 and > 0.20 do SQL
-    # (mesmo filtro de app.py.intersect()). NÃO faz .reset_index(drop=True) aqui:
-    # geom_1/geom_2 ainda estão indexados com os rótulos antigos (0..N-1, com
-    # buracos onde linhas foram descartadas acima), e o .loc[pares.index] logo
-    # abaixo depende de pares manter esses mesmos rótulos — resetar aqui já
-    # causou um bug grave de geometria trocada entre talhões (ver histórico).
+    # mesmo filtro de app.py.intersect(). NÃO faz .reset_index(drop=True)
+    # aqui: pares precisa manter os rótulos antigos de geom_1/geom_2 pro
+    # .loc[pares.index] logo abaixo — resetar já causou geometria trocada
+    # entre talhões (ver histórico).
     pares = pares[pares["PercentualSobreposicaoGeral"] > 1.0]
 
-    # lista, não .apply numa GeoSeries: ver comentário equivalente em
-    # app.py.intersect() — evita que o geopandas confunda esses dicts com
-    # geometria de verdade e quebre o to_json() lá na frente.
+    # lista, não .apply numa GeoSeries: ver app.py.intersect()
     pares["Geometria1"] = [g.__geo_interface__ for g in geom_1.loc[pares.index]]
     pares["Geometria2"] = [g.__geo_interface__ for g in geom_2.loc[pares.index]]
 
@@ -277,11 +231,8 @@ def calcular_sobreposicoes(df, cliente):
         "Reforma_1": "Reforma1", "Reforma_2": "Reforma2",
     }
     pares = pares.rename(columns=colunas)
-    # classificar_motivo espera Fazenda1/2, Talhao1/2 e PercentualSobreposicaoGeral
-    # já renomeados (é o mesmo contrato usado por app.py.intersect), mais
-    # PercentualSobreposto1/2 (ainda não renomeados/removidos nesse ponto) e
-    # NomeFazenda_1/2 (não renomeado) pra achar fazenda cadastrada 2x com
-    # código diferente.
+    # classificar_motivo espera Fazenda1/2, Talhao1/2, PercentualSobreposicaoGeral
+    # (renomeados), PercentualSobreposto1/2 e NomeFazenda_1/2 (não renomeados).
     pares["Motivo"] = classificar_motivo(pares)
     pares["Cliente"] = cliente
 
@@ -300,8 +251,7 @@ def salvar_cache(cliente, pares):
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
     # DataFrame comum (não GeoDataFrame): garante que to_json() serialize
-    # Geometria1/2 como dict comum em vez de tentar tratar o resultado como
-    # GeoJSON de uma coluna de geometria ativa.
+    # Geometria1/2 como dict comum, não como geometria ativa.
     pares_planas = pd.DataFrame(pares).reset_index().rename(columns={"index": "id"})
     payload = {
         "cliente": cliente,

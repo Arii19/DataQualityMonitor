@@ -1,15 +1,13 @@
-"""Manda, pra cada cliente, um e-mail separado com os PDFs de todos os
-relatórios do ManagerVision cadastrados em cache/managervision/<cliente>.json,
-pro(s) destinatário(s) daquele cliente (config.EMAIL_POR_CLIENTE, com
-fallback pro EMAIL_RECIPIENTS padrão do .env).
+"""Manda, pra cada cliente, um e-mail com os PDFs dos relatórios do
+ManagerVision em cache (cache/managervision/<cliente>.json), pro(s)
+destinatário(s) daquele cliente (config.EMAIL_POR_CLIENTE, com fallback pro
+EMAIL_RECIPIENTS do .env).
 
-Não gera PDF aqui — só anexa os que já foram gerados em
-output/managervision_pdf/<cliente>/<chart_id>.pdf pelo passo anterior do
-pipeline (scripts/build_managervision_pdfs.py, chamado pela skill
-/atualizar-relatorios-managervision). Cliente sem relatório cadastrado ou
-sem nenhum PDF em disco é só avisado no resumo e pulado — não é erro.
+Não gera PDF aqui — só anexa os já gerados por
+scripts/build_managervision_pdfs.py. Cliente sem relatório/PDF é só avisado e
+pulado — não é erro.
 
-Roda automaticamente todo dia, logo depois de /atualizar-relatorios-managervision,
+Roda automaticamente todo dia, logo após /atualizar-relatorios-managervision,
 dentro de scripts/atualizar_diario.ps1.
 
 Rodar sem argumentos:
@@ -38,9 +36,8 @@ def _relatorios_do_cliente(cliente: str) -> list[dict]:
 
 
 def _pdfs_gerados(cliente: str, itens: list[dict]) -> list[dict]:
-    """Cruza o cache de metadado com os PDFs que já existem em disco (gerados
-    por scripts/build_managervision_pdfs.py, que roda antes deste script no
-    pipeline diário) — devolve só os itens com PDF pronto, com o caminho anexado."""
+    """Cruza o cache de metadado com os PDFs já em disco — devolve só os itens
+    com PDF pronto, com o caminho anexado."""
     pasta = OUTPUT_DIR / "managervision_pdf" / cliente
     prontos = []
     for item in itens:

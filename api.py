@@ -1,12 +1,6 @@
-"""API que expõe o pipeline de geometrias duplicadas para a interface React.
-
-Os dados não vêm mais de um SQL Server acessado direto por pyodbc: os 9
-clientes vivem no smartbio, que só uma sessão do Claude com o MCP consegue
-consultar — este backend, rodando sozinho via uvicorn, não tem essa
-credencial. Por isso ele serve os dados de cache/<cliente>.json, gerado por
-smartbio_cache.py sempre que alguém pede pro Claude "atualizar o cliente X".
-Não existe cálculo ao vivo aqui: "rodar pipeline" apenas relê o cache do
-disco, e a tela mostra a data em que aquele cache foi gerado.
+"""API que serve o cache de geometrias duplicadas (cache/<cliente>.json,
+gerado por smartbio_cache.py via MCP smartbio) para o front React. Não
+recalcula nada nem acessa o smartbio diretamente.
 
 Rodar com:
     uvicorn api:app --reload --port 8001
@@ -28,7 +22,7 @@ from smartbio_cache import CACHE_DIR, CLIENTES, OUTPUT_DIR
 
 app = FastAPI(title="Data Quality Monitor - Geometrias Duplicadas")
 
-# libera o front-end local (Vite) a chamar essa API
+# permite chamadas do front local (Vite)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
@@ -59,9 +53,7 @@ def _ultimo_excel(cliente: str) -> Optional[Path]:
 
 
 def _gerar_excel_multi_aba(clientes: list[str]) -> Path:
-    """Monta um único Excel com uma aba por cliente (a partir do cache atual
-    de cada um), pra anexar num e-mail com vários clientes selecionados sem
-    virar um anexo por cliente."""
+    """Monta um Excel com uma aba por cliente, pra anexar num único e-mail."""
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     caminho = OUTPUT_DIR / f"multiplos_clientes_{timestamp}.xlsx"
@@ -72,7 +64,7 @@ def _gerar_excel_multi_aba(clientes: list[str]) -> Path:
             df = pd.DataFrame(dados["itens"]).drop(
                 columns=["id", "Geometria1", "Geometria2"], errors="ignore"
             )
-            # nome de aba do Excel tem limite de 31 caracteres
+            # aba do Excel: máx. 31 caracteres
             df.to_excel(writer, sheet_name=cliente[:31], index=False)
 
     return caminho
@@ -103,8 +95,7 @@ def _bate_filtro(item: dict, fazenda, usina, safra, talhao, percentual_minimo) -
 
 @app.get("/api/clientes")
 def listar_clientes():
-    """Lista os clientes disponíveis pra barra lateral, com a data do cache
-    de cada um (None se ainda não foi extraído nenhuma vez)."""
+    """Lista clientes com a data do último cache (None se nunca extraído)."""
     itens = []
     for cliente in CLIENTES:
         caminho = CACHE_DIR / f"{cliente}.json"
@@ -122,9 +113,7 @@ def listar_clientes():
 
 @app.post("/api/pipeline/rodar")
 def rodar_pipeline(cliente: str):
-    """Não recalcula nada — só confirma que existe cache pra esse cliente e
-    devolve a data em que ele foi gerado. O cálculo em si só acontece quando
-    alguém pede pro Claude Code extrair aquele cliente do smartbio de novo."""
+    """Não recalcula — só confirma que existe cache e devolve a data de geração."""
     dados = _carregar_cache(cliente)
     return {"total": dados["total"], "ultima_execucao": dados["gerado_em"]}
 
@@ -138,12 +127,11 @@ def listar_duplicados(
     talhao: Optional[str] = None,
     percentual_minimo: Optional[float] = None,
 ):
-    """Lista os pares já calculados pro cliente selecionado, com filtros opcionais."""
+    """Lista os pares do cache do cliente, com filtros opcionais."""
     dados = _carregar_cache(cliente)
     itens = [i for i in dados["itens"] if _bate_filtro(i, fazenda, usina, safra, talhao, percentual_minimo)]
 
-    # a lista fica leve (sem geometria) — o desenho de cada par só é buscado
-    # sob demanda em /api/duplicados/{id}/geometria quando o usuário clica na linha
+    # sem geometria: o desenho é buscado sob demanda em /geometria
     itens_lista = [
         {k: v for k, v in item.items() if k not in ("Geometria1", "Geometria2")}
         for item in itens
@@ -158,7 +146,7 @@ def listar_duplicados(
 
 @app.get("/api/duplicados/{par_id}/geometria")
 def obter_geometria(par_id: int, cliente: str):
-    """Retorna a geometria (GeoJSON) das duas talhões de um par, pra desenhar na tela."""
+    """Retorna a geometria (GeoJSON) dos dois talhões de um par."""
     dados = _carregar_cache(cliente)
     for item in dados["itens"]:
         if item["id"] == par_id:
@@ -169,7 +157,7 @@ def obter_geometria(par_id: int, cliente: str):
 
 @app.get("/api/duplicados/excel")
 def baixar_excel(cliente: str):
-    """Retorna pra download o último Excel gerado pra esse cliente."""
+    """Retorna o último Excel gerado pra esse cliente."""
     arquivo = _ultimo_excel(cliente)
     if not arquivo:
         raise HTTPException(status_code=404, detail=f"Nenhum arquivo gerado ainda pra '{cliente}'.")
@@ -183,12 +171,10 @@ def baixar_excel(cliente: str):
 
 @app.post("/api/duplicados/email")
 def enviar_por_email(clientes: List[str] = Query(...)):
-    """Envia os dados dos clientes selecionados por e-mail, via Microsoft
-    Graph. Um cliente só: anexa o Excel já gerado por ele. Mais de um:
-    monta um único Excel com uma aba por cliente, em vez de um anexo pra
-    cada um."""
+    """Envia por e-mail os dados dos clientes selecionados: um só anexa o
+    Excel já gerado; mais de um monta um Excel com uma aba por cliente."""
     for cliente in clientes:
-        _carregar_cache(cliente)  # 404 cedo se algum cliente não tiver dado
+        _carregar_cache(cliente)  # 404 cedo se faltar dado
 
     if len(clientes) == 1:
         arquivo = _ultimo_excel(clientes[0])
@@ -214,11 +200,8 @@ def _carregar_relatorios(cliente: str) -> dict:
 
 @app.get("/api/relatorios")
 def listar_relatorios(cliente: str):
-    """Lista os relatórios do ManagerVision (Smartbio) já baixados em cache
-    pra esse cliente: título, descrição e link pro relatório ao vivo. Esse
-    cache só é populado por uma sessão do Claude com o MCP Smartbio — esse
-    backend não acessa o ManagerVision diretamente, então a lista fica vazia
-    até alguém pedir pro Claude Code atualizar."""
+    """Lista os relatórios do ManagerVision em cache pra esse cliente
+    (populado via MCP Smartbio; este backend não acessa o ManagerVision)."""
     return _carregar_relatorios(cliente)
 
 
@@ -240,8 +223,7 @@ def _selecionar_relatorios(cliente: str, chart_ids: List[str]) -> list[dict]:
 
 @app.get("/api/relatorios/{chart_id}/pdf")
 def baixar_relatorio_pdf(chart_id: str, cliente: str):
-    """Loga no ManagerVision (Playwright) e devolve o PDF de um relatório,
-    com os dados ao vivo — pra download direto pelo botão da tela."""
+    """Loga no ManagerVision (Playwright) e devolve o PDF do relatório com dados ao vivo."""
     item = _selecionar_relatorios(cliente, [chart_id])[0]
 
     try:
@@ -255,8 +237,7 @@ def baixar_relatorio_pdf(chart_id: str, cliente: str):
 
 @app.post("/api/relatorios/email")
 def enviar_relatorios_por_email(cliente: str, arquivos: List[str] = Query(...)):
-    """Gera um PDF de cada relatório selecionado (login automatizado via
-    Playwright, com dados ao vivo) e manda todos anexados num único e-mail."""
+    """Gera um PDF de cada relatório selecionado (Playwright) e manda todos num só e-mail."""
     selecionados = _selecionar_relatorios(cliente, arquivos)
     if not selecionados:
         raise HTTPException(status_code=400, detail="Nenhum relatório selecionado.")

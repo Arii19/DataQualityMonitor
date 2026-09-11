@@ -41,7 +41,7 @@ function construirPath(aneis, bbox) {
 
   const projetar = ([x, y]) => {
     const px = (x - bbox.minX) * escala + deslocX
-    const py = TAMANHO - ((y - bbox.minY) * escala + deslocY) // inverte o eixo Y (geo cresce pra cima)
+    const py = TAMANHO - ((y - bbox.minY) * escala + deslocY) // inverte eixo Y (geo cresce pra cima)
     return `${px.toFixed(2)},${py.toFixed(2)}`
   }
 
@@ -51,9 +51,8 @@ function construirPath(aneis, bbox) {
 }
 
 export default function GeometriaModal({ par, geometria, carregando, erro, onClose }) {
-  // 'ambos' mostra os dois talhões (com a sobreposição em destaque); os outros
-  // dois isolam só um deles — mas o enquadramento continua o mesmo nos três
-  // modos, calculado sempre a partir das duas geometrias, pra não "pular"
+  // 'ambos' mostra os dois talhões; os outros isolam um só — enquadramento
+  // sempre calculado a partir das duas geometrias, pra não "pular"
   const [modo, setModo] = useState('ambos')
 
   const aneis1 = extrairAneis(geometria?.geometria1)

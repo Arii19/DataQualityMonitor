@@ -1,33 +1,21 @@
-﻿# Roda a extração diária de geometrias duplicadas E dos relatórios
-# ManagerVision (todos os 9 clientes) via Claude Code headless, chamando as
-# skills .claude/skills/atualizar-geometrias e
-# .claude/skills/atualizar-relatorios-managervision, gera os PDFs dos
-# relatórios (Playwright) e regenera dist/dashboard.html (dado pro artifact
-# somente-leitura usado por quem acessa de fora da rede local). No final,
-# manda os e-mails automáticos por cliente: um com o Excel de geometrias
-# duplicadas e outro com os PDFs dos relatórios ManagerVision, cada um só
-# pro(s) destinatário(s) daquele cliente (config.EMAIL_POR_CLIENTE).
+﻿# Roda a extração diária de geometrias duplicadas e dos relatórios
+# ManagerVision (9 clientes) via Claude Code headless (skills
+# atualizar-geometrias e atualizar-relatorios-managervision), gera os PDFs
+# (Playwright), regenera dist/dashboard.html e manda os e-mails automáticos
+# por cliente (Excel de geometrias + PDFs de relatórios), cada um só pro(s)
+# destinatário(s) daquele cliente (config.EMAIL_POR_CLIENTE).
 #
-# NÃO republica o artifact sozinho: a ferramenta Artifact (e, dependendo da
-# configuração de autenticação, até o MCP do smartbio) não fica disponível de
-# forma confiável numa sessão `claude -p` disparada pelo Agendador de Tarefas
-# do Windows — testado e confirmado várias vezes (ver histórico do projeto).
-# Definir CLAUDE_CODE_OAUTH_TOKEN pra "resolver" o Artifact troca o modo de
-# autenticação da sessão e quebra o acesso ao MCP do smartbio, que é pior
-# ainda — não faça isso. O fluxo real é: essa tarefa deixa dist/dashboard.html
-# sempre atualizado no disco; pra republicar o link, rode
-# scripts/publicar_dashboard.ps1 (você mesma, num terminal comum) ou peça pro
-# Claude Code numa sessão ativa ("republica o dashboard").
+# NÃO republica o artifact sozinho: a ferramenta Artifact não fica disponível
+# numa sessão `claude -p` do Agendador de Tarefas (testado e confirmado).
+# Definir CLAUDE_CODE_OAUTH_TOKEN pra contornar isso quebra o acesso ao MCP
+# do smartbio — não faça isso. Esta tarefa só deixa dist/dashboard.html
+# atualizado no disco; pra republicar, rode scripts/publicar_dashboard.ps1 ou
+# peça numa sessão ativa do Claude Code ("republica o dashboard").
 #
-# Pensado pra ser disparado pelo Agendador de Tarefas do Windows — ver
-# scripts/instalar_tarefa_agendada.ps1 pra registrar isso como tarefa diária.
-#
-# O smartbio só é consultável de dentro de uma sessão do Claude Code
-# autenticada (não existe API de serviço separada) — por isso o "cron" real
-# aqui é uma invocação do próprio `claude`, não um script python sozinho. Já
-# a geração de PDF (Playwright), o build do dashboard e o envio dos e-mails
-# não precisam do MCP — mas ficam dentro do mesmo prompt/sessão só pra manter
-# tudo num log só.
+# Disparado pelo Agendador de Tarefas do Windows (ver
+# scripts/instalar_tarefa_agendada.ps1). O smartbio só é consultável de
+# dentro de uma sessão autenticada do Claude Code — por isso o "cron" real
+# aqui é uma invocação do `claude`, não um script python isolado.
 #
 # URL do artifact (dashboard.html) pra republicar manualmente:
 # https://claude.ai/code/artifact/db50ea50-a6bf-415a-9c2c-e3bea1e8ae60
@@ -37,11 +25,9 @@ $ErrorActionPreference = "Stop"
 $raiz = Split-Path -Parent $PSScriptRoot
 Set-Location $raiz
 
-# O Agendador de Tarefas do Windows não herda o PATH de um terminal
-# interativo — "claude" (gerenciado pelo nvm em C:\tools\nvm\nodejs) não é
-# encontrado nesse contexto, e a tarefa falha em menos de 1s sem log nenhum
-# (já aconteceu, "Último resultado: 1"). Por isso chamamos pelo caminho
-# completo, em vez de confiar em `claude` estar no PATH.
+# O Agendador de Tarefas não herda o PATH interativo — "claude" (via nvm)
+# não é encontrado nesse contexto e a tarefa falha sem log (já aconteceu).
+# Por isso chamamos pelo caminho completo.
 $claudeCmd = "C:\tools\nvm\nodejs\claude.cmd"
 if (-not (Test-Path $claudeCmd)) {
     throw "claude.cmd não encontrado em $claudeCmd — o nvm deve ter mudado de lugar. Rode 'where.exe claude' num terminal interativo e atualize esse caminho."
