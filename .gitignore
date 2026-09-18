@@ -1,6 +1,5 @@
 .env
-.claude/settings.json
-.claude/settings.local.json
+.claude/
 output/*.html
 output/*.xlsx
 !output/.gitkeep
