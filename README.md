@@ -73,7 +73,7 @@ Claude é o que repovoa os dois.
 │   ├── build_dashboard.py     # gera dist/dashboard.html a partir do cache/*.json mais recente
 │   ├── publicar_dashboard.ps1 # regenera dist/dashboard.html (publicar é sempre via Claude Code, ver abaixo)
 │   ├── dashboard_template.html # front-end do dashboard remoto (HTML+JS sem build step)
-│   └── enviar_email_geometrias.py     # e-mail automático (por cliente) do Excel de duplicados
+│   └── enviar_email_geometrias.py     # e-mail automático de geometrias (consolidado por usina, ou separado se EMAIL_POR_CLIENTE tiver o cliente)
 ├── raw/                       # CSV bruto extraído do smartbio por cliente (ignorado pelo git)
 ├── cache/                     # cache/<cliente>.json consumido pela API (ignorado pelo git)
 ├── output/                    # Excel + relatórios de geometria suspeita, gerados a cada execução (ignorado pelo git)
@@ -115,10 +115,14 @@ EMAIL_SUBJECT=Relatório de Geometrias Duplicadas
 ```
 
 `EMAIL_RECIPIENTS` é o destinatário **padrão**, usado por qualquer cliente
-sem regra própria. Pra mandar um cliente específico só pra alguém em
-particular (ex.: Cocal só pro Otávio), edite `EMAIL_POR_CLIENTE` em
-[config.py](config.py) — cliente ausente desse dicionário cai no
-`EMAIL_RECIPIENTS` do `.env`.
+sem regra própria em `EMAIL_POR_CLIENTE` ([config.py](config.py) — hoje
+vazio, ou seja, os 9 clientes caem no padrão). Todo cliente que cai no
+padrão vai **junto num e-mail só**, com um Excel de uma aba por usina (em vez
+de uma aba por cliente) — ver
+[scripts/enviar_email_geometrias.py](scripts/enviar_email_geometrias.py). Só
+volta a ser um e-mail separado (Excel próprio, só daquele cliente) se ele
+ganhar uma entrada em `EMAIL_POR_CLIENTE` com destinatário diferente de
+`EMAIL_RECIPIENTS`.
 
 ### 2. Frontend
 
@@ -167,10 +171,11 @@ publicado como Claude Artifact — link fixo e privado, compartilhável.
 - `dist/dashboard.html` é **regenerado sozinho, 1x/dia (07:55)**, pela mesma
   tarefa agendada do Windows que faz a extração
   ([scripts/atualizar_diario_geometrias.ps1](scripts/atualizar_diario_geometrias.ps1)).
-  Essa mesma tarefa também manda, todo dia, um e-mail de geometrias **por
-  cliente** (destinatário conforme `EMAIL_POR_CLIENTE` em
-  [config.py](config.py)) — ver
-  [scripts/enviar_email_geometrias.py](scripts/enviar_email_geometrias.py).
+  Essa mesma tarefa também manda, todo dia, o e-mail de geometrias — junto
+  num Excel só (aba por usina) pros clientes sem destinatário próprio,
+  separado pros que tiverem (ver `EMAIL_POR_CLIENTE` em
+  [config.py](config.py) e
+  [scripts/enviar_email_geometrias.py](scripts/enviar_email_geometrias.py)).
 - **Publicar no link é sempre pedido numa conversa do Claude Code** — "atualiza
   e republica o dashboard". A publicação em si não roda fora de uma sessão
   interativa (nem agendada, nem via script solto), então não tem um comando

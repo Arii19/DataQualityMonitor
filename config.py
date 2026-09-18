@@ -17,11 +17,11 @@ EMAIL_SUBJECT = os.getenv("EMAIL_SUBJECT", "Relatório de Geometrias Duplicadas"
 
 # Destinatários por cliente pro e-mail diário automático (scripts/
 # enviar_email_geometrias.py). Cliente ausente cai no default: EMAIL_RECIPIENTS
-# do .env.
-EMAIL_POR_CLIENTE = {
-    "Cocal": ["otavio.almeida@smartbreeder.com.br"],
-    "Atvos": ["ariane.rodrigues@smartbreeder.com.br"],
-}
+# do .env — hoje isso é todo mundo, e por isso os 9 clientes vão consolidados
+# num só e-mail (uma aba por usina, ver enviar_email_geometrias.py). Um
+# cliente só volta a ser mandado separado (Excel próprio, e-mail próprio) se
+# ganhar aqui um destinatário diferente de EMAIL_RECIPIENTS.
+EMAIL_POR_CLIENTE = {}
 
 
 def destinatarios_do_cliente(cliente: str) -> list[str]:
