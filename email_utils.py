@@ -108,8 +108,7 @@ def enviar_email(caminho_arquivo, assunto=None, corpo=None, destinatarios=None):
 
 
 def enviar_email_texto(assunto=None, corpo=None, destinatarios=None):
-    """Envia um e-mail só de texto, sem anexo (ex.: links do ManagerVision,
-    que dependem da sessão/domínio do cliente pra carregar dados)."""
+    """Envia um e-mail só de texto, sem anexo."""
     return _enviar_mensagem(assunto, corpo, destinatarios)
 
 

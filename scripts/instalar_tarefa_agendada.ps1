@@ -1,6 +1,6 @@
-﻿# Registra a tarefa agendada do Windows que roda scripts/atualizar_diario.ps1
-# todo dia às 07:55, hora local. Rode uma vez, manualmente, num PowerShell
-# comum (não precisa admin).
+﻿# Registra a tarefa agendada do Windows que roda
+# scripts/atualizar_diario_geometrias.ps1 todo dia às 07:55, hora local.
+# Rode uma vez, manualmente, num PowerShell comum (não precisa admin).
 #
 # Reexecutar atualiza a tarefa existente (SchTasks /Create /F).
 # Pra remover: scripts/remover_tarefa_agendada.ps1
@@ -9,7 +9,7 @@ $ErrorActionPreference = "Stop"
 
 $nomeTarefa = "DataQualityMonitor - Atualizar geometrias"
 $raiz = Split-Path -Parent $PSScriptRoot
-$scriptAlvo = Join-Path $raiz "scripts\atualizar_diario.ps1"
+$scriptAlvo = Join-Path $raiz "scripts\atualizar_diario_geometrias.ps1"
 
 $acao = "-NoProfile -ExecutionPolicy Bypass -File `"$scriptAlvo`""
 

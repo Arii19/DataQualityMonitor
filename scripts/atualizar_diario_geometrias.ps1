@@ -1,9 +1,7 @@
-﻿# Roda a extração diária de geometrias duplicadas e dos relatórios
-# ManagerVision (9 clientes) via Claude Code headless (skills
-# atualizar-geometrias e atualizar-relatorios-managervision), gera os PDFs
-# (Playwright), regenera dist/dashboard.html e manda os e-mails automáticos
-# por cliente (Excel de geometrias + PDFs de relatórios), cada um só pro(s)
-# destinatário(s) daquele cliente (config.EMAIL_POR_CLIENTE).
+﻿# Roda a extração diária de geometrias duplicadas (9 clientes) via Claude
+# Code headless (skill atualizar-geometrias), regenera dist/dashboard.html e
+# manda o e-mail automático de geometrias por cliente (Excel de duplicados,
+# só pro(s) destinatário(s) daquele cliente — config.EMAIL_POR_CLIENTE).
 #
 # NÃO republica o artifact sozinho: a ferramenta Artifact não fica disponível
 # numa sessão `claude -p` do Agendador de Tarefas (testado e confirmado).
@@ -35,39 +33,33 @@ if (-not (Test-Path $claudeCmd)) {
 
 $logDir = Join-Path $raiz "logs"
 New-Item -ItemType Directory -Force -Path $logDir | Out-Null
-$logFile = Join-Path $logDir ("atualizacao_{0}.log" -f (Get-Date -Format "yyyyMMdd_HHmmss"))
+$logFile = Join-Path $logDir ("atualizacao_geometrias_{0}.log" -f (Get-Date -Format "yyyyMMdd_HHmmss"))
 
 $prompt = @"
 /atualizar-geometrias todos os clientes
 
 Depois de terminar a extração e confirmar que cache/<cliente>.json foi
-regravado pros 9 clientes, rode /atualizar-relatorios-managervision todos os
-clientes (atualiza cache/managervision/<cliente>.json via MCP e gera os PDFs
-via Playwright — esse passo de PDF pode levar uns 8 minutos, dê um timeout
-de pelo menos 600000ms no Bash pra ele).
-
-Por fim, com os dois caches atualizados, rode em sequência:
+regravado pros 9 clientes, rode em sequência:
   venv/Scripts/python scripts/build_dashboard.py
   venv/Scripts/python scripts/enviar_email_geometrias.py
-  venv/Scripts/python scripts/enviar_email_relatorios.py
 
-Os dois últimos scripts mandam um e-mail por cliente (um de geometrias, um
-de relatórios), cada um só pro(s) destinatário(s) daquele cliente — não é
-preciso fazer mais nada manualmente pra isso.
+O segundo script manda um e-mail por cliente com o Excel de duplicados, cada
+um só pro(s) destinatário(s) daquele cliente — não é preciso fazer mais nada
+manualmente pra isso.
 
 Não tente publicar nem acessar a ferramenta Artifact — isso não roda nesta
 sessão headless, é feito manualmente depois, num terminal comum
 (scripts/publicar_dashboard.ps1) ou numa sessão ativa do Claude Code
 ("republica o dashboard").
 
-Se qualquer passo falhar (extração, geração de PDF, build ou envio de
-e-mail), pare e reporte o erro claramente — não tente workaround.
+Se qualquer passo falhar (extração, build ou envio de e-mail), pare e
+reporte o erro claramente — não tente workaround.
 "@
 
-Write-Output "[$(Get-Date -Format o)] iniciando atualização diária..." | Tee-Object -FilePath $logFile -Append
+Write-Output "[$(Get-Date -Format o)] iniciando atualização diária de geometrias..." | Tee-Object -FilePath $logFile -Append
 
 & $claudeCmd -p $prompt `
-  --allowedTools "Skill,Bash,Read,Write,mcp__claude_ai_MCP_Smartbio__execute_query,mcp__claude_ai_MCP_Smartbio__list_charts" `
+  --allowedTools "Skill,Bash,Read,Write,mcp__claude_ai_MCP_Smartbio__execute_query" `
   *>&1 | Tee-Object -FilePath $logFile -Append
 
 Write-Output "[$(Get-Date -Format o)] finalizado. Log completo em $logFile" | Tee-Object -FilePath $logFile -Append

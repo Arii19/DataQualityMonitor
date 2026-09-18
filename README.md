@@ -62,21 +62,18 @@ Claude é o que repovoa os dois.
 ├── api.py                     # API FastAPI que serve cache/<cliente>.json pro front-end local
 ├── config.py                  # variáveis de ambiente (e-mail/Azure, EMAIL_POR_CLIENTE)
 ├── email_utils.py             # envio de e-mail via Microsoft Graph
-├── managervision_pdf.py       # exporta PDF dos relatórios ManagerVision via Playwright
 ├── requirements.txt           # dependências Python
 ├── Queries/
 │   └── geometria_correta_por_safra.sql  # consulta de referência com o join por safra (histórico do bug corrigido)
 ├── docs/
 │   └── especificacao_view_geometria_por_safra.md  # spec da correção aplicada nas views do smartbio
 ├── scripts/
-│   ├── atualizar_diario.ps1   # tarefa agendada do Windows: extração diária + regenera dist/dashboard.html + e-mails automáticos
-│   ├── instalar_tarefa_agendada.ps1 / remover_tarefa_agendada.ps1
+│   ├── atualizar_diario_geometrias.ps1  # tarefa agendada (07:55): extração de geometrias + regenera dist/dashboard.html + e-mail
+│   ├── instalar_tarefa_agendada.ps1 / remover_tarefa_agendada.ps1  # registra/remove a tarefa acima
 │   ├── build_dashboard.py     # gera dist/dashboard.html a partir do cache/*.json mais recente
 │   ├── publicar_dashboard.ps1 # regenera dist/dashboard.html (publicar é sempre via Claude Code, ver abaixo)
 │   ├── dashboard_template.html # front-end do dashboard remoto (HTML+JS sem build step)
-│   ├── build_managervision_pdfs.py    # gera os PDFs de todos os relatórios em cache/managervision/*.json
-│   ├── enviar_email_geometrias.py     # e-mail automático (por cliente) do Excel de duplicados
-│   └── enviar_email_relatorios.py     # e-mail automático (por cliente) dos PDFs do ManagerVision
+│   └── enviar_email_geometrias.py     # e-mail automático (por cliente) do Excel de duplicados
 ├── raw/                       # CSV bruto extraído do smartbio por cliente (ignorado pelo git)
 ├── cache/                     # cache/<cliente>.json consumido pela API (ignorado pelo git)
 ├── output/                    # Excel + relatórios de geometria suspeita, gerados a cada execução (ignorado pelo git)
@@ -102,19 +99,11 @@ Claude é o que repovoa os dois.
 ```powershell
 python -m venv venv
 .\venv\Scripts\pip install -r requirements.txt
-.\venv\Scripts\python -m playwright install chromium
 ```
-
-O último passo baixa o Chromium usado pelo Playwright pra exportar em PDF os
-relatórios do ManagerVision (ver `managervision_pdf.py`) — sem ele, só o
-download do binário do navegador, os endpoints `/api/relatorios/*/pdf` e
-`/api/relatorios/email` falham.
 
 Crie um arquivo `.env` na raiz do projeto com as credenciais de e-mail (via
 Microsoft Graph, usadas por `config.py`/`email_utils.py` — ver `## API`
-abaixo) e o login do ManagerVision (usado pelo Playwright pra autenticar e
-carregar os dados ao vivo dos relatórios — a mesma conta funciona em todos
-os clientes/subdomínios smartbreeder.com.br):
+abaixo):
 
 ```
 AZURE_TENANT_ID=
@@ -123,8 +112,6 @@ AZURE_CLIENT_SECRET=
 EMAIL_SENDER=
 EMAIL_RECIPIENTS=fulano@empresa.com, ciclano@empresa.com
 EMAIL_SUBJECT=Relatório de Geometrias Duplicadas
-MANAGERVISION_USER=
-MANAGERVISION_PASSWORD=
 ```
 
 `EMAIL_RECIPIENTS` é o destinatário **padrão**, usado por qualquer cliente
@@ -177,12 +164,13 @@ publicado como Claude Artifact — link fixo e privado, compartilhável.
   artifact — `shapely.simplify` + arredondamento de coordenadas) fica
   embutido no próprio HTML. Os 9 clientes somados ficam bem abaixo do limite
   de 16MB de um artifact.
-- `dist/dashboard.html` é **regenerado sozinho, 1x/dia**, pela mesma tarefa
-  agendada do Windows que faz a extração ([scripts/atualizar_diario.ps1](scripts/atualizar_diario.ps1)).
-  Essa mesma tarefa também manda, todo dia, um e-mail de geometrias e um de
-  relatórios **por cliente** (destinatário conforme `EMAIL_POR_CLIENTE` em
-  [config.py](config.py)) — ver [scripts/enviar_email_geometrias.py](scripts/enviar_email_geometrias.py)
-  e [scripts/enviar_email_relatorios.py](scripts/enviar_email_relatorios.py).
+- `dist/dashboard.html` é **regenerado sozinho, 1x/dia (07:55)**, pela mesma
+  tarefa agendada do Windows que faz a extração
+  ([scripts/atualizar_diario_geometrias.ps1](scripts/atualizar_diario_geometrias.ps1)).
+  Essa mesma tarefa também manda, todo dia, um e-mail de geometrias **por
+  cliente** (destinatário conforme `EMAIL_POR_CLIENTE` em
+  [config.py](config.py)) — ver
+  [scripts/enviar_email_geometrias.py](scripts/enviar_email_geometrias.py).
 - **Publicar no link é sempre pedido numa conversa do Claude Code** — "atualiza
   e republica o dashboard". A publicação em si não roda fora de uma sessão
   interativa (nem agendada, nem via script solto), então não tem um comando

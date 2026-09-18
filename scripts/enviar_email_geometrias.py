@@ -4,7 +4,7 @@ com fallback pro EMAIL_RECIPIENTS do .env). Cliente sem Excel é só avisado e
 pulado — não é erro.
 
 Roda automaticamente todo dia, logo após /atualizar-geometrias, dentro de
-scripts/atualizar_diario.ps1.
+scripts/atualizar_diario_geometrias.ps1.
 
 Rodar sem argumentos:
     python scripts/enviar_email_geometrias.py
