@@ -4,7 +4,7 @@ consegue consultar o smartbio; api.py não tem essa credencial.
 
 Fluxo: Claude extrai vw_bree_full.CadastroDeAreas+Geometria via MCP para
 raw/<cliente>/*.csv -> este script calcula sobreposições (lógica de
-app.py.intersect/classificar_motivo) e grava cache/<cliente>.json +
+sjoin espacial + app.classificar_motivo) e grava cache/<cliente>.json +
 output/<cliente>_duplicados.xlsx -> api.py serve do cache, sem tocar no
 smartbio/SQL Server.
 
@@ -34,11 +34,16 @@ OUTPUT_DIR = BASE_DIR / "output"
 CLIENTES = ["Atvos", "SantaAdelia", "Cevasa", "CMAA", "Guaira", "GQQ", "JPA", "Cocal", "IPE"]
 
 # Histórico: vw_bree_full.Geometria não amarrava geometria por safra (ver
-# docs/especificacao_view_geometria_por_safra.md). _filtrar_geometria_suspeita()
-# comparava AreaTotal x área do GeoJson como mitigação, mas causava falso
-# negativo (GQQ, talhão 758). Com o join IDTalhao+IDSafra corrigido na
-# extração, a mitigação ficou desnecessária — desativada de propósito, assim
-# como _filtrar_por_safra_ativa() logo abaixo.
+# docs/especificacao_view_geometria_por_safra.md). Já houve aqui dois filtros
+# de mitigação — moda do idSafra do lote e AreaTotal x área do GeoJson —,
+# removidos de propósito: davam falso negativo (talhões 6027 e 758 do GQQ,
+# ativos de verdade) e ficaram redundantes com o join IDTalhao+IDSafra
+# corrigido na extração. Ver o git log se precisar recuperá-los.
+
+# quantos Excels com timestamp manter em output/ por tipo (um por cliente,
+# o consolidado do e-mail diário e o multi-cliente da tela) — os mais
+# antigos são apagados a cada nova geração, senão acumulam um por dia.
+MANTER_EXCELS = 10
 
 
 # caracteres de controle que o Excel/openpyxl recusam em célula de texto —
@@ -54,6 +59,48 @@ def _sanitizar_para_excel(df):
                 lambda v: _CARACTERES_ILEGAIS_EXCEL.sub("", v) if isinstance(v, str) else v
             )
     return df
+
+
+def limpar_excels_antigos(padrao: str, manter: int = MANTER_EXCELS):
+    """Apaga de output/ os arquivos que batem com `padrao` (glob com o
+    timestamp no nome, ex.: "Atvos_duplicados_*.xlsx"), mantendo só os
+    `manter` mais recentes."""
+    arquivos = sorted(OUTPUT_DIR.glob(padrao))
+    for antigo in arquivos[:-manter] if manter else arquivos:
+        antigo.unlink(missing_ok=True)
+
+
+def ultimo_excel(cliente: str):
+    """Excel mais recente gerado por salvar_cache() pro cliente, ou None."""
+    candidatos = sorted(OUTPUT_DIR.glob(f"{cliente}_duplicados_*.xlsx"))
+    return candidatos[-1] if candidatos else None
+
+
+def _nome_aba(nome: str, usados: set) -> str:
+    """Nome de aba do Excel: só até 31 caracteres, sem os caracteres que o
+    Excel recusa (: \\ / ? * [ ]), sem repetir (duas abas não podem ter o
+    mesmo nome)."""
+    limpo = re.sub(r'[:\\/?*\[\]]', "-", nome or "Sem nome").strip() or "Sem nome"
+    limpo = limpo[:31]
+    base, sufixo_n = limpo, 2
+    while limpo in usados:
+        sufixo = f" ({sufixo_n})"
+        limpo = base[: 31 - len(sufixo)] + sufixo
+        sufixo_n += 1
+    usados.add(limpo)
+    return limpo
+
+
+def salvar_excel_por_aba(caminho: Path, abas: dict) -> Path:
+    """Grava um Excel com uma aba por chave de `abas` ({nome: [itens do
+    cache]}), sem as colunas de geometria/id."""
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    usados = set()
+    with pd.ExcelWriter(caminho, engine="openpyxl") as writer:
+        for nome, itens in abas.items():
+            df = pd.DataFrame(itens).drop(columns=["id", "Geometria1", "Geometria2"], errors="ignore")
+            _sanitizar_para_excel(df).to_excel(writer, sheet_name=_nome_aba(nome, usados), index=False)
+    return caminho
 
 
 def _parse_geojson(valor):
@@ -80,33 +127,6 @@ def _parse_geojson(valor):
         return shape(dado)
     except (TypeError, ValueError, json.JSONDecodeError, AttributeError):
         return None
-
-
-def _filtrar_por_safra_ativa(df):
-    """DESATIVADA — devolve df intacto (mantida só pra não quebrar a
-    assinatura usada em carregar_bruto).
-
-    Tentativa anterior: comparar idSafra com a moda do lote pra achar
-    geometria de safra errada. Insegura em geral — Cocal e GQQ têm duas
-    populações de idSafra legitimamente ativas em paralelo (cortes/ciclos
-    diferentes), então a moda excluiria talhões ativos de verdade (ex.:
-    talhão 6027 do GQQ, confirmado ativo no banco). Precisaria do join
-    estrito por HistDetalhado (só com acesso direto ao banco, ver
-    Queries/geometria_correta_por_safra.sql). Retorna (df, vazio) até existir
-    um critério seguro."""
-    return df, df.iloc[0:0].copy()
-
-
-def _filtrar_geometria_suspeita(df):
-    """DESATIVADA — devolve (df, vazio, vazio) (mantida só pra não quebrar a
-    assinatura usada em carregar_bruto).
-
-    Comparava área do GeoJson com AreaTotal oficial pra achar geometria de
-    outra safra/corte, mitigando o problema descrito em
-    _filtrar_por_safra_ativa(). Causava falso negativo (GQQ, talhão 758:
-    AreaTotal=0 mas duplicidade real). Com o join IDTalhao+IDSafra corrigido
-    na extração, ficou redundante e só arriscada — desativada."""
-    return df, df.iloc[0:0].copy(), df.iloc[0:0].copy()
 
 
 def carregar_bruto(pasta_cliente, cliente=None):
@@ -145,45 +165,13 @@ def carregar_bruto(pasta_cliente, cliente=None):
         print(f"  {invalidas} geometria(s) inválida(s)/vazia(s) descartada(s)")
     df = df[df["geometry"].notna()].reset_index(drop=True)
 
-    df, outra_safra = _filtrar_por_safra_ativa(df)
-    if len(outra_safra):
-        print(
-            f"  {len(outra_safra)} talhão(ões) com geometria de safra diferente da "
-            f"ativa (idSafra não bate com a moda do lote) descartado(s) do cálculo"
-        )
-
-    df, excluidos, sinalizados = _filtrar_geometria_suspeita(df)
-    if len(excluidos):
-        print(
-            f"  {len(excluidos)} talhão(ões) com geometria de outra safra/corte "
-            f"(divergência grande com a AreaTotal oficial) descartado(s) do cálculo"
-        )
-    if len(sinalizados):
-        print(
-            f"  {len(sinalizados)} talhão(ões) com AreaTotal oficial zerada mas com "
-            f"desenho — mantido(s) no cálculo, mas sinalizado(s) pra revisão manual"
-        )
-    if len(outra_safra) or len(excluidos) or len(sinalizados):
-        colunas_relatorio = [
-            c for c in ["IDTalhao", "CodigoFazenda", "NomeFazenda", "Bloco", "CodigoTalhao",
-                        "Corte", "Safra", "idSafra", "AreaTotal", "AreaCalculadaHa", "NomeUsina_Empresa_Unidade"]
-            if c in df.columns or c in outra_safra.columns
-        ]
-        relatorio = pd.concat([
-            outra_safra.reindex(columns=colunas_relatorio).assign(Situacao="Excluído do cálculo (idSafra diferente da ativa)"),
-            excluidos.reindex(columns=colunas_relatorio).assign(Situacao="Excluído do cálculo (divergência de área)"),
-            sinalizados.reindex(columns=colunas_relatorio).assign(Situacao="Sinalizado — revisar manualmente (AreaTotal zerada)"),
-        ], ignore_index=True)
-        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-        _sanitizar_para_excel(relatorio).to_excel(OUTPUT_DIR / f"{cliente}_geometria_suspeita.xlsx", index=False)
-        print(f"  ver output/{cliente}_geometria_suspeita.xlsx")
-
     return df
 
 
 def calcular_sobreposicoes(df, cliente):
-    """Mesma lógica de app.py.intersect(), adaptada pras colunas do smartbio
-    (CadastroDeAreas usa código de fazenda/talhão). `cliente` só entra como
+    """Pares de talhões com sobreposição real de área (sjoin espacial +
+    área de interseção/união), nas colunas do smartbio (CadastroDeAreas usa
+    código de fazenda/talhão). `cliente` só entra como
     coluna no resultado, pra identificar a origem no Excel multi-cliente."""
     gdf = geopandas.GeoDataFrame(
         df.drop(columns=["GeoJson"]), geometry="geometry"
@@ -210,13 +198,14 @@ def calcular_sobreposicoes(df, cliente):
     pares["PercentualSobreposto2"] = area_intersecao / area_2 * 100
     pares["PercentualSobreposicaoGeral"] = area_intersecao / area_uniao * 100
 
-    # mesmo filtro de app.py.intersect(). NÃO faz .reset_index(drop=True)
+    # equivale ao WHERE PercentualSobreposicaoGeral > ... do SQL antigo. NÃO faz .reset_index(drop=True)
     # aqui: pares precisa manter os rótulos antigos de geom_1/geom_2 pro
     # .loc[pares.index] logo abaixo — resetar já causou geometria trocada
     # entre talhões (ver histórico).
     pares = pares[pares["PercentualSobreposicaoGeral"] > 1.0]
 
-    # lista, não .apply numa GeoSeries: ver app.py.intersect()
+    # lista, não .apply numa GeoSeries: senão o geopandas confunde o dict
+    # com geometria de verdade e quebra o to_json() depois
     pares["Geometria1"] = [g.__geo_interface__ for g in geom_1.loc[pares.index]]
     pares["Geometria2"] = [g.__geo_interface__ for g in geom_2.loc[pares.index]]
 
@@ -268,6 +257,7 @@ def salvar_cache(cliente, pares):
     _sanitizar_para_excel(pares.drop(columns=["Geometria1", "Geometria2"], errors="ignore")).to_excel(
         caminho_excel, index=False, sheet_name="Duplicados"
     )
+    limpar_excels_antigos(f"{cliente}_duplicados_*.xlsx")
 
     return caminho_excel
 

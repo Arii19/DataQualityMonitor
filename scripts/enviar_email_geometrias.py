@@ -16,25 +16,24 @@ Rodar sem argumentos:
 """
 
 import json
-import re
 import sys
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
-
-import pandas as pd
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(BASE_DIR))
 
 from config import EMAIL_RECIPIENTS, destinatarios_do_cliente  # noqa: E402
 from email_utils import enviar_email  # noqa: E402
-from smartbio_cache import CACHE_DIR, CLIENTES, OUTPUT_DIR  # noqa: E402
-
-
-def _ultimo_excel(cliente: str):
-    candidatos = sorted(OUTPUT_DIR.glob(f"{cliente}_duplicados_*.xlsx"))
-    return candidatos[-1] if candidatos else None
+from smartbio_cache import (  # noqa: E402
+    CACHE_DIR,
+    CLIENTES,
+    OUTPUT_DIR,
+    limpar_excels_antigos,
+    salvar_excel_por_aba,
+    ultimo_excel,
+)
 
 
 def _carregar_itens(cliente: str):
@@ -42,21 +41,6 @@ def _carregar_itens(cliente: str):
     if not caminho.exists():
         return None
     return json.loads(caminho.read_text(encoding="utf-8"))["itens"]
-
-
-def _nome_aba(nome: str, usados: set) -> str:
-    """Nome de aba do Excel: só até 31 caracteres, sem os caracteres que o
-    Excel recusa (: \\ / ? * [ ]), sem repetir (duas usinas não podem cair na
-    mesma aba)."""
-    limpo = re.sub(r'[:\\/?*\[\]]', "-", nome or "Sem usina").strip() or "Sem usina"
-    limpo = limpo[:31]
-    base, sufixo_n = limpo, 2
-    while limpo in usados:
-        sufixo = f" ({sufixo_n})"
-        limpo = base[: 31 - len(sufixo)] + sufixo
-        sufixo_n += 1
-    usados.add(limpo)
-    return limpo
 
 
 def _gerar_excel_por_usina(clientes: list[str], timestamp: str) -> Path | None:
@@ -75,15 +59,11 @@ def _gerar_excel_por_usina(clientes: list[str], timestamp: str) -> Path | None:
     if not linhas_por_usina:
         return None
 
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    caminho = OUTPUT_DIR / f"geometrias_duplicadas_consolidado_{timestamp}.xlsx"
-    usados = set()
-    with pd.ExcelWriter(caminho, engine="openpyxl") as writer:
-        for usina in sorted(linhas_por_usina):
-            df = pd.DataFrame(linhas_por_usina[usina]).drop(
-                columns=["id", "Geometria1", "Geometria2"], errors="ignore"
-            )
-            df.to_excel(writer, sheet_name=_nome_aba(usina, usados), index=False)
+    caminho = salvar_excel_por_aba(
+        OUTPUT_DIR / f"geometrias_duplicadas_consolidado_{timestamp}.xlsx",
+        {usina: linhas_por_usina[usina] for usina in sorted(linhas_por_usina)},
+    )
+    limpar_excels_antigos("geometrias_duplicadas_consolidado_*.xlsx")
 
     return caminho
 
@@ -126,7 +106,7 @@ def main():
                 print(f"ERRO Consolidado: {exc}")
 
     for cliente, destinatarios in individuais:
-        arquivo = _ultimo_excel(cliente)
+        arquivo = ultimo_excel(cliente)
         if not arquivo:
             print(f"{cliente}: sem Excel gerado — pulado")
             continue

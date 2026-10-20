@@ -162,7 +162,99 @@
     margin-top: 10px;
   }
 
-  .acoes-topo { display: flex; gap: 10px; }
+  .acoes-topo { display: flex; gap: 10px; flex-wrap: wrap; }
+
+  .painel-relatorios {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--code-bg);
+    padding: 16px 20px;
+    margin: 18px 0 4px;
+  }
+  .painel-relatorios[hidden] { display: none; }
+  .painel-relatorios-cabecalho {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .painel-relatorios-cabecalho h2 { font-size: 17px; }
+  .painel-relatorios-nota { font-size: 12.5px; color: var(--text); margin-top: 4px; }
+  .painel-relatorios-nota.aviso { color: var(--acucar); }
+  .lista-relatorios { list-style: none; margin: 14px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+  .relatorio-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+  }
+  .relatorio-info { flex: 1 1 auto; min-width: 0; }
+  .relatorio-info strong { color: var(--text-h); }
+  .relatorio-info p { margin: 2px 0 0; font-size: 12.5px; color: var(--text); }
+  .relatorio-item .botao-secundario { flex: 0 0 auto; border-radius: 8px; padding: 7px 14px; border: 1px solid var(--border); }
+  @media (max-width: 640px) {
+    .relatorio-item { flex-direction: column; align-items: stretch; }
+  }
+
+  .form-envio { display: flex; flex-direction: column; gap: 12px; margin-top: 14px; }
+  .form-envio label { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--text-h); font-weight: 600; }
+  .form-envio input[type="text"], .form-envio textarea {
+    font: inherit;
+    font-weight: 400;
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text-h);
+  }
+  .form-envio textarea { min-height: 64px; resize: vertical; }
+  .zona-arquivos {
+    border: 1.5px dashed var(--accent-border);
+    border-radius: 10px;
+    padding: 16px;
+    text-align: center;
+    background: var(--bg);
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text);
+  }
+  .zona-arquivos.arrastando { background: var(--accent-bg); }
+  .zona-arquivos input { display: none; }
+  .biblioteca { border: 1px solid var(--border); border-radius: 10px; padding: 12px; background: var(--bg); display: flex; flex-direction: column; gap: 10px; }
+  .biblioteca-cabecalho { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex-wrap: wrap; color: var(--text-h); font-size: 13.5px; }
+  .biblioteca-total { font-size: 12px; color: var(--text); font-variant-numeric: tabular-nums; }
+  .biblioteca .zona-arquivos { padding: 12px; }
+  .lista-arquivos { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; max-height: 320px; overflow-y: auto; }
+  .lista-arquivos li.vazio-lista { border: none; background: transparent; color: var(--text); font-size: 12.5px; justify-content: center; }
+  .lista-arquivos input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); flex: 0 0 auto; }
+  .lista-arquivos .data-arquivo { font-size: 11.5px; color: var(--text); white-space: nowrap; }
+  .acao-arquivo { background: transparent; border: 1px solid var(--border); border-radius: 6px; color: var(--text-h); cursor: pointer; font-size: 12px; padding: 3px 8px; }
+  .acao-arquivo:disabled { opacity: 0.5; cursor: wait; }
+  .acao-arquivo.excluir { color: var(--erro); border-color: var(--erro-border); }
+  @media (max-width: 640px) { .lista-arquivos .data-arquivo { display: none; } }
+  .lista-arquivos li {
+    display: flex; align-items: center; gap: 10px;
+    padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); font-size: 13px;
+  }
+  .lista-arquivos .nome-arquivo { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-h); }
+  .lista-arquivos .tam-arquivo { font-family: var(--mono); color: var(--text); font-size: 12px; }
+  .remover-arquivo { background: transparent; border: none; color: var(--erro); cursor: pointer; font-size: 16px; line-height: 1; padding: 2px 6px; }
+  .acoes-envio { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .msg-envio { font-size: 13px; }
+  .msg-envio.ok { color: var(--accent); }
+  .msg-envio.falha { color: var(--erro); }
+  .historico-envios { margin-top: 18px; }
+  .historico-envios h3 { font-size: 14px; color: var(--text-h); margin: 0 0 8px; }
+  .historico-envios ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .historico-envios li { font-size: 12.5px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); display: flex; gap: 10px; flex-wrap: wrap; }
+  .selo-status { font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; border-radius: 999px; padding: 1px 8px; }
+  .selo-status.pendente { color: var(--acucar); background: var(--acucar-bg); }
+  .selo-status.enviado { color: var(--accent); background: var(--accent-bg); }
+  .selo-status.erro { color: var(--erro); background: var(--erro-bg); }
 
   a.botao-secundario { text-decoration: none; display: inline-flex; align-items: center; }
 
@@ -297,8 +389,67 @@
       <div class="acoes-topo">
         <button id="botao-tema" class="botao-secundario botao-tema" title="Alternar tema" aria-label="Alternar tema">🌙</button>
         <button id="botao-excel" class="botao-secundario">Exportar Excel</button>
+        <button id="botao-relatorios" class="botao-secundario">Relatórios ManagerVision</button>
+        <button id="botao-envio" class="botao-secundario">Enviar arquivos por e-mail</button>
       </div>
     </header>
+
+    <div class="painel-relatorios" id="painel-relatorios" hidden>
+      <div class="painel-relatorios-cabecalho">
+        <div>
+          <h2>Relatórios ManagerVision <span class="cliente-atual" id="titulo-relatorios-cliente"></span></h2>
+          <p class="painel-relatorios-nota" id="relatorios-status"></p>
+        </div>
+        <button id="botao-fechar-relatorios" class="botao-secundario">Fechar</button>
+      </div>
+      <ul class="lista-relatorios" id="lista-relatorios"></ul>
+    </div>
+
+    <div class="painel-relatorios" id="painel-envio" hidden>
+      <div class="painel-relatorios-cabecalho">
+        <div>
+          <h2>Enviar relatórios por e-mail</h2>
+          <p class="painel-relatorios-nota">
+            Abra o relatório no ManagerVision, aplique os filtros, use "Extrair PDF" e salve como PDF (ou exporte em Excel/CSV).
+            Suba o arquivo aqui — ele fica salvo na nuvem, na sua lista, pra baixar ou mandar quando quiser. Marque os
+            arquivos e clique em Enviar:
+            o e-mail entra numa fila e sai em até 10 minutos (das 7h às 19h).
+          </p>
+        </div>
+        <button id="botao-fechar-envio" class="botao-secundario">Fechar</button>
+      </div>
+      <p class="painel-relatorios-nota aviso" id="envio-indisponivel" hidden></p>
+      <form class="form-envio" id="form-envio">
+        <div class="biblioteca">
+          <div class="biblioteca-cabecalho">
+            <strong>Seus arquivos salvos</strong>
+            <span class="biblioteca-total" id="biblioteca-total"></span>
+          </div>
+          <ul class="lista-arquivos" id="lista-arquivos"></ul>
+          <label class="zona-arquivos" id="zona-arquivos">
+            <input type="file" id="input-arquivos" accept=".pdf,.xlsx,.csv,application/pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" multiple />
+            <span id="zona-arquivos-texto">+ Salvar arquivos (PDF, Excel .xlsx ou CSV): clique para escolher — ou arraste e solte aqui</span>
+          </label>
+        </div>
+        <label>Destinatários (separe por vírgula)
+          <input type="text" id="envio-destinatarios" placeholder="nome@empresa.com.br, outro@empresa.com.br" autocomplete="off" />
+        </label>
+        <label>Assunto
+          <input type="text" id="envio-assunto" />
+        </label>
+        <label>Mensagem (opcional)
+          <textarea id="envio-mensagem" placeholder="Segue em anexo…"></textarea>
+        </label>
+        <div class="acoes-envio">
+          <button type="submit" class="botao-primario" id="botao-enviar">Enviar</button>
+          <span class="msg-envio" id="msg-envio"></span>
+        </div>
+      </form>
+      <div class="historico-envios" id="historico-envios" hidden>
+        <h3>Seus envios</h3>
+        <ul id="lista-historico"></ul>
+      </div>
+    </div>
 
     <form class="filtros" id="form-filtros">
       <input type="text" id="filtro-fazenda" placeholder="Fazenda" />
@@ -441,6 +592,8 @@
     document.getElementById("filtro-percentual").value = "";
     renderizarClientes();
     renderizarPagina();
+    renderizarRelatorios();
+    if (painelRelatoriosAberto()) carregarRelatoriosAoVivo(cliente);
   }
 
   // ---------- filtro + tabela ----------
@@ -583,6 +736,548 @@
     }
   });
 
+  // ---------- relatórios ManagerVision ----------
+  // Lista ao vivo via conector "MCP Smartbio" do próprio visitante
+  // (list_charts, com o login dele). Sem o conector — ou fora do claude.ai —
+  // cai na lista embutida no build (DADOS.relatorios). O relatório em si
+  // abre no ManagerVision, onde já tem os filtros de data/unidade.
+  var SERVIDOR_MCP = "MCP Smartbio";
+  var relatoriosAoVivo = {}; // cliente -> {itens, carregadoEm} | {erro: {code, message}}
+  var carregandoRelatorios = {};
+  var mcpPromessa = window.claude && typeof window.claude.use === "function"
+    ? window.claude.use("mcp").catch(function () { return null; })
+    : Promise.resolve(null);
+
+  function urlRelatorio(cliente, chartId) {
+    var base = (DADOS.urlAcesso && DADOS.urlAcesso[cliente]) || "";
+    return base ? base + "ManagerVision/Chart/" + chartId : "";
+  }
+
+  function extrairCharts(payload) {
+    if (Array.isArray(payload)) return payload;
+    if (payload && Array.isArray(payload.result)) return payload.result;
+    return null;
+  }
+
+  function mensagemErroMcp(erro) {
+    switch (erro && erro.code) {
+      case "server_not_connected":
+      case "selection_required":
+        return "Pra ver a lista ao vivo, adicione o conector \"" + SERVIDOR_MCP + "\" em claude.ai → Configurações → Conectores.";
+      case "needs_reauth":
+        return "O conector \"" + SERVIDOR_MCP + "\" precisa ser reconectado em claude.ai → Configurações → Conectores.";
+      case "blocked_by_policy":
+      case "approval_required":
+        return "A política da organização não libera a consulta ao \"" + SERVIDOR_MCP + "\" nesta página.";
+      case "tool_error":
+        return "O " + SERVIDOR_MCP + " recusou a consulta: " + (erro.message || "erro sem detalhe") + ".";
+      case "server_unavailable":
+        return "O " + SERVIDOR_MCP + " não respondeu agora.";
+      default:
+        return "Não foi possível buscar a lista ao vivo" + (erro && erro.message ? " (" + erro.message + ")" : "") + ".";
+    }
+  }
+
+  function chamarListCharts(mcp, cliente, tentouDeNovo) {
+    return mcp.callTool(SERVIDOR_MCP, "list_charts", { nome_cliente: cliente }, { cache: { staleTime: 300000 } })
+      .catch(function (erro) {
+        if (erro && erro.retryable && !tentouDeNovo) {
+          var espera = Math.min(erro.retryAfterMs || 1500 + Math.random() * 1500, 10000);
+          return new Promise(function (r) { setTimeout(r, espera); })
+            .then(function () { return chamarListCharts(mcp, cliente, true); });
+        }
+        throw erro;
+      });
+  }
+
+  function carregarRelatoriosAoVivo(cliente) {
+    if (!cliente || carregandoRelatorios[cliente]) return;
+    var atual = relatoriosAoVivo[cliente];
+    if (atual && atual.itens) return;
+    carregandoRelatorios[cliente] = true;
+    renderizarRelatorios();
+    mcpPromessa.then(function (mcp) {
+      if (!mcp) {
+        relatoriosAoVivo[cliente] = { erro: { code: "sem_mcp" } };
+        return;
+      }
+      return chamarListCharts(mcp, cliente).then(function (resultado) {
+        var charts = extrairCharts(resultado && resultado.payload);
+        if (!charts) {
+          relatoriosAoVivo[cliente] = { erro: { code: "formato", message: "resposta em formato inesperado" } };
+          return;
+        }
+        relatoriosAoVivo[cliente] = {
+          carregadoEm: resultado.cache && resultado.cache.storedAt ? resultado.cache.storedAt : Date.now(),
+          itens: charts.map(function (c) {
+            return { chart_id: c.chart_id, titulo: c.titulo, description: c.description, url: urlRelatorio(cliente, c.chart_id) };
+          }),
+        };
+      }, function (erro) {
+        relatoriosAoVivo[cliente] = { erro: erro || { code: "upstream_error" } };
+      });
+    }).then(function () {
+      carregandoRelatorios[cliente] = false;
+      renderizarRelatorios();
+    });
+  }
+
+  function renderizarRelatorios() {
+    var cliente = estado.clienteAtivo;
+    var aoVivo = relatoriosAoVivo[cliente];
+    var embutidos = (DADOS.relatorios && DADOS.relatorios[cliente]) || [];
+    var itens = aoVivo && aoVivo.itens ? aoVivo.itens : embutidos;
+
+    document.getElementById("botao-relatorios").textContent =
+      "Relatórios ManagerVision" + (itens.length ? " (" + itens.length + ")" : "");
+    document.getElementById("titulo-relatorios-cliente").textContent = cliente ? "— " + cliente : "";
+
+    var status = document.getElementById("relatorios-status");
+    status.classList.remove("aviso");
+    var dataEmbutida = DADOS.relatoriosGeradoEm ? new Date(DADOS.relatoriosGeradoEm).toLocaleString("pt-BR") : null;
+    if (carregandoRelatorios[cliente]) {
+      status.textContent = "Buscando a lista atualizada no " + SERVIDOR_MCP + "…";
+    } else if (aoVivo && aoVivo.itens) {
+      status.textContent = "Lista ao vivo do " + SERVIDOR_MCP + " (" + new Date(aoVivo.carregadoEm).toLocaleString("pt-BR") +
+        "). \"Abrir\" leva ao relatório no ManagerVision, com os dados e filtros de data de hoje — precisa estar logado lá.";
+    } else {
+      var base = dataEmbutida ? "Lista de " + dataEmbutida + "." : "Lista gravada na última atualização.";
+      if (aoVivo && aoVivo.erro && aoVivo.erro.code !== "sem_mcp" && aoVivo.erro.code !== "not_granted" && aoVivo.erro.code !== "capability_disabled") {
+        status.textContent = mensagemErroMcp(aoVivo.erro) + " " + base;
+        status.classList.add("aviso");
+      } else {
+        status.textContent = base + " \"Abrir\" leva ao relatório no ManagerVision com os dados de hoje — precisa estar logado lá.";
+      }
+    }
+
+    var lista = document.getElementById("lista-relatorios");
+    lista.innerHTML = "";
+    if (!itens.length) {
+      var vazio = document.createElement("li");
+      vazio.className = "vazio";
+      vazio.textContent = carregandoRelatorios[cliente] ? "" : "Nenhum relatório ManagerVision registrado pra esse cliente.";
+      lista.appendChild(vazio);
+      return;
+    }
+    itens.forEach(function (r) {
+      var li = document.createElement("li");
+      li.className = "relatorio-item";
+      var info = document.createElement("div");
+      info.className = "relatorio-info";
+      var titulo = document.createElement("strong");
+      titulo.textContent = r.titulo || "(sem título)";
+      info.appendChild(titulo);
+      if (r.description) {
+        var desc = document.createElement("p");
+        desc.textContent = r.description;
+        info.appendChild(desc);
+      }
+      li.appendChild(info);
+      if (r.url) {
+        var link = document.createElement("a");
+        link.className = "botao-secundario";
+        link.href = r.url;
+        link.target = "_blank";
+        link.rel = "noopener noreferrer";
+        link.textContent = "Abrir";
+        li.appendChild(link);
+      }
+      lista.appendChild(li);
+    });
+  }
+
+  function painelRelatoriosAberto() {
+    return !document.getElementById("painel-relatorios").hidden;
+  }
+  document.getElementById("botao-relatorios").addEventListener("click", function () {
+    var painel = document.getElementById("painel-relatorios");
+    painel.hidden = !painel.hidden;
+    if (!painel.hidden) carregarRelatoriosAoVivo(estado.clienteAtivo);
+  });
+  document.getElementById("botao-fechar-relatorios").addEventListener("click", function () {
+    document.getElementById("painel-relatorios").hidden = true;
+  });
+
+  // ---------- PDFs salvos na nuvem + envio por e-mail (fila) ----------
+  // Os PDFs ficam no banco do artifact, na área de cada visitante (regra
+  // {self}: cada um lê e grava só pedidos/<seu id>/…; a dona lê todos):
+  //   pedidos/<uid>                               marcador (pra fila achar quem tem pedido)
+  //   pedidos/<uid>/arquivos/<fid>                PDF salvo: nome, bytes, partes, salvoEm
+  //   pedidos/<uid>/arquivos/<fid>/partes/<n>     conteúdo em base64, picado (até 256 KiB por documento)
+  //   pedidos/<uid>/itens/<pid>                   pedido de e-mail, referenciando os <fid>
+  // A página não manda e-mail: uma tarefa agendada no app da dona do projeto
+  // (scripts/enviar_fila_relatorios.py) envia via Microsoft Graph e marca o status.
+  var MAX_EMAIL_BYTES = Math.floor(2.8 * 1024 * 1024); // limite do sendMail do Graph (~4 MB com base64)
+  var MAX_ARQUIVO_BYTES = 10 * 1024 * 1024;
+  var TAMANHO_PARTE = 180000; // caracteres de base64 por documento
+  var envio = {
+    db: null, uid: null, arquivos: [], pedidos: [], selecionados: {},
+    cancelarArquivos: null, cancelarHistorico: null, enviando: false, subindo: false,
+  };
+
+  function usarCapacidade(nome) {
+    return window.claude && typeof window.claude.use === "function"
+      ? window.claude.use(nome).catch(function () { return null; })
+      : Promise.resolve(null);
+  }
+  var dbPromessa = usarCapacidade("db");
+  var userPromessa = usarCapacidade("user");
+  var downloadsPromessa = usarCapacidade("downloads");
+
+  function formatarTamanho(bytes) {
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(0) + " KB";
+    return (bytes / 1024 / 1024).toFixed(2).replace(".", ",") + " MB";
+  }
+  function novoId() {
+    return new Date().toISOString().replace(/[-:.TZ]/g, "").slice(0, 14) + "-" + Math.random().toString(36).slice(2, 8);
+  }
+  function mostrarMsgEnvio(texto, tipo) {
+    var el = document.getElementById("msg-envio");
+    el.textContent = texto || "";
+    el.className = "msg-envio" + (tipo ? " " + tipo : "");
+  }
+  function caminhoArquivo(fid) { return "pedidos/" + envio.uid + "/arquivos/" + fid; }
+  function selecionadosAtuais() {
+    return envio.arquivos.filter(function (a) { return envio.selecionados[a.id]; });
+  }
+  function emPedidoPendente(fid) {
+    return envio.pedidos.some(function (p) {
+      return p.status !== "enviado" && p.status !== "erro" &&
+        (p.arquivos || []).some(function (a) { return a.fid === fid; });
+    });
+  }
+
+  // ----- biblioteca -----
+  function renderizarBiblioteca() {
+    var lista = document.getElementById("lista-arquivos");
+    lista.innerHTML = "";
+    if (!envio.arquivos.length) {
+      var vazio = document.createElement("li");
+      vazio.className = "vazio-lista";
+      vazio.textContent = envio.db ? "Nenhum arquivo salvo ainda." : "";
+      lista.appendChild(vazio);
+    }
+    envio.arquivos.forEach(function (a) {
+      var li = document.createElement("li");
+      var caixa = document.createElement("input");
+      caixa.type = "checkbox";
+      caixa.checked = !!envio.selecionados[a.id];
+      caixa.title = "Incluir no próximo e-mail";
+      caixa.setAttribute("aria-label", "Incluir " + a.nome + " no próximo e-mail");
+      caixa.addEventListener("change", function () {
+        if (caixa.checked) envio.selecionados[a.id] = true; else delete envio.selecionados[a.id];
+        renderizarTotais();
+      });
+      var nome = document.createElement("span");
+      nome.className = "nome-arquivo";
+      nome.textContent = a.nome;
+      nome.title = a.nome;
+      var tam = document.createElement("span");
+      tam.className = "tam-arquivo";
+      tam.textContent = formatarTamanho(a.bytes || 0);
+      var data = document.createElement("span");
+      data.className = "data-arquivo";
+      data.textContent = a.salvoEm ? new Date(a.salvoEm).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "";
+      var baixar = document.createElement("button");
+      baixar.type = "button";
+      baixar.className = "acao-arquivo";
+      baixar.textContent = "Baixar";
+      baixar.addEventListener("click", function () { baixarArquivo(a, baixar); });
+      var excluir = document.createElement("button");
+      excluir.type = "button";
+      excluir.className = "acao-arquivo excluir";
+      excluir.textContent = "Excluir";
+      excluir.addEventListener("click", function () { excluirArquivo(a, excluir); });
+      [caixa, nome, tam, data, baixar, excluir].forEach(function (el) { li.appendChild(el); });
+      lista.appendChild(li);
+    });
+    renderizarTotais();
+  }
+
+  function renderizarTotais() {
+    var sel = selecionadosAtuais();
+    var bytes = sel.reduce(function (s, a) { return s + (a.bytes || 0); }, 0);
+    var texto = envio.arquivos.length + " arquivo(s) salvo(s)";
+    if (sel.length) texto += " · " + sel.length + " marcado(s) — " + formatarTamanho(bytes) + " de " + formatarTamanho(MAX_EMAIL_BYTES) + " por e-mail";
+    var total = document.getElementById("biblioteca-total");
+    total.textContent = texto;
+    total.style.color = bytes > MAX_EMAIL_BYTES ? "var(--erro)" : "";
+  }
+
+  // tipos aceitos e como reconhecer o conteúdo (a extensão sozinha não basta) —
+  // mesma regra de scripts/enviar_fila_relatorios.py
+  var TIPOS_ACEITOS = /\.(pdf|xlsx|csv)$/i;
+  function conteudoValido(nome, binario) {
+    var ext = (nome.match(TIPOS_ACEITOS) || [])[1];
+    ext = ext && ext.toLowerCase();
+    if (ext === "pdf") return binario.slice(0, 5) === "%PDF-";
+    if (ext === "xlsx") return binario.slice(0, 4) === "PK\x03\x04";
+    if (ext === "csv") return binario.slice(0, 65536).indexOf("\x00") < 0;
+    return false;
+  }
+
+  function lerBase64(arquivo) {
+    return arquivo.arrayBuffer().then(function (buf) {
+      var bytes = new Uint8Array(buf);
+      var binario = "";
+      for (var i = 0; i < bytes.length; i += 0x8000) {
+        binario += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+      }
+      return { base64: btoa(binario), valido: conteudoValido(arquivo.name, binario) };
+    });
+  }
+
+  function salvarArquivos(lista) {
+    if (!envio.db) { mostrarMsgEnvio("Abra este dashboard dentro do claude.ai pra salvar arquivos.", "falha"); return; }
+    if (envio.subindo) return;
+    var arquivos = Array.prototype.filter.call(lista, function (f) {
+      return TIPOS_ACEITOS.test(f.name);
+    });
+    var ignorados = lista.length - arquivos.length;
+    var grandes = arquivos.filter(function (f) { return f.size > MAX_ARQUIVO_BYTES; });
+    arquivos = arquivos.filter(function (f) { return f.size <= MAX_ARQUIVO_BYTES; });
+    if (!arquivos.length) {
+      mostrarMsgEnvio(grandes.length ? "Arquivo acima de " + formatarTamanho(MAX_ARQUIVO_BYTES) + " não pode ser salvo." : "Só dá pra salvar PDF, Excel (.xlsx) ou CSV.", "falha");
+      return;
+    }
+    envio.subindo = true;
+    var salvos = 0, problemas = [];
+    function proximo(i) {
+      if (i >= arquivos.length) return Promise.resolve();
+      var f = arquivos[i];
+      mostrarMsgEnvio("Salvando " + f.name + " (" + (i + 1) + " de " + arquivos.length + ")…");
+      return lerBase64(f).then(function (lido) {
+        if (!lido.valido) { problemas.push("o conteúdo de " + f.name + " não bate com a extensão"); return; }
+        var fid = novoId();
+        var n = Math.ceil(lido.base64.length / TAMANHO_PARTE);
+        var p = 0;
+        function parte() {
+          if (p >= n) return Promise.resolve();
+          var idx = p++;
+          return envio.db.doc(caminhoArquivo(fid) + "/partes/" + idx)
+            .set({ dados: lido.base64.slice(idx * TAMANHO_PARTE, (idx + 1) * TAMANHO_PARTE) })
+            .then(parte);
+        }
+        // partes primeiro, o registro do arquivo por último: a lista nunca mostra PDF incompleto
+        return parte().then(function () {
+          return envio.db.doc(caminhoArquivo(fid)).set({
+            nome: f.name.slice(0, 150), bytes: f.size, partes: n,
+            salvoEm: new Date().toISOString(), cliente: estado.clienteAtivo || null,
+          });
+        }).then(function () {
+          envio.selecionados[fid] = true;
+          salvos++;
+        });
+      }).then(function () { return proximo(i + 1); });
+    }
+    proximo(0).then(function () {
+      var avisos = problemas.slice();
+      if (ignorados) avisos.push(ignorados + " arquivo(s) ignorado(s): só PDF, .xlsx ou CSV");
+      if (grandes.length) avisos.push(grandes.length + " acima de " + formatarTamanho(MAX_ARQUIVO_BYTES));
+      mostrarMsgEnvio(salvos + " arquivo(s) salvo(s) e marcado(s) pro próximo e-mail." + (avisos.length ? " " + avisos.join("; ") + "." : ""), avisos.length ? "falha" : "ok");
+    }).catch(function (erro) {
+      var codigo = erro && erro.code;
+      mostrarMsgEnvio(codigo === "quota_exceeded"
+        ? "O espaço de arquivos salvos está cheio — exclua alguns ou avise a responsável pelo dashboard."
+        : "Não foi possível salvar: " + ((erro && erro.message) || "erro desconhecido") + ".", "falha");
+    }).then(function () {
+      envio.subindo = false;
+      renderizarBiblioteca();
+    });
+  }
+
+  function baixarArquivo(a, botao) {
+    botao.disabled = true;
+    var n = a.partes || 0, pedacos = [];
+    function parte(i) {
+      if (i >= n) return Promise.resolve();
+      return envio.db.doc(caminhoArquivo(a.id) + "/partes/" + i).get().then(function (snap) {
+        if (!snap.exists) throw new Error("parte " + i + " não encontrada");
+        pedacos.push(String(snap.data().dados || ""));
+        return parte(i + 1);
+      });
+    }
+    Promise.all([downloadsPromessa, parte(0)]).then(function (r) {
+      var downloads = r[0];
+      if (!downloads) throw new Error("download indisponível neste visualizador");
+      var binario = atob(pedacos.join(""));
+      var bytes = new Uint8Array(binario.length);
+      for (var i = 0; i < binario.length; i++) bytes[i] = binario.charCodeAt(i);
+      return downloads.save({ filename: a.nome, data: bytes });
+    }).catch(function (erro) {
+      if (erro && erro.code === "declined") return;
+      mostrarMsgEnvio("Não foi possível baixar " + a.nome + ": " + ((erro && erro.message) || erro) + ".", "falha");
+    }).then(function () { botao.disabled = false; });
+  }
+
+  function excluirArquivo(a, botao) {
+    if (emPedidoPendente(a.id)) {
+      mostrarMsgEnvio("\"" + a.nome + "\" está num e-mail ainda na fila — exclua depois que ele for enviado.", "falha");
+      return;
+    }
+    if (!window.confirm("Excluir \"" + a.nome + "\" dos seus arquivos salvos? Isso não tem volta.")) return;
+    botao.disabled = true;
+    // registro primeiro (some da lista), partes depois
+    envio.db.doc(caminhoArquivo(a.id)).delete().then(function () {
+      delete envio.selecionados[a.id];
+      var ps = [];
+      for (var i = 0; i < (a.partes || 0); i++) ps.push(envio.db.doc(caminhoArquivo(a.id) + "/partes/" + i).delete());
+      return Promise.all(ps);
+    }).then(function () {
+      mostrarMsgEnvio("\"" + a.nome + "\" excluído.", "ok");
+    }).catch(function (erro) {
+      botao.disabled = false;
+      mostrarMsgEnvio("Não foi possível excluir: " + ((erro && erro.message) || erro) + ".", "falha");
+    });
+  }
+
+  // ----- histórico de e-mails -----
+  function rotuloStatus(status) {
+    return status === "enviado" ? "Enviado" : status === "erro" ? "Não enviado" : "Na fila";
+  }
+  function renderizarHistorico() {
+    var pedidos = envio.pedidos.slice().sort(function (a, b) {
+      return String(b.criadoEm || "").localeCompare(String(a.criadoEm || ""));
+    }).slice(0, 15);
+    document.getElementById("historico-envios").hidden = pedidos.length === 0;
+    var ul = document.getElementById("lista-historico");
+    ul.innerHTML = "";
+    pedidos.forEach(function (p) {
+      var li = document.createElement("li");
+      var status = p.status === "enviado" || p.status === "erro" ? p.status : "pendente";
+      var selo = document.createElement("span");
+      selo.className = "selo-status " + status;
+      selo.textContent = rotuloStatus(status);
+      var quando = document.createElement("span");
+      quando.textContent = p.criadoEm ? new Date(p.criadoEm).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "";
+      var resumo = document.createElement("span");
+      resumo.textContent = (p.arquivos || []).map(function (a) { return a.nome; }).join(", ") +
+        " → " + (p.destinatarios || []).join(", ");
+      li.appendChild(selo); li.appendChild(quando); li.appendChild(resumo);
+      if (status === "erro" && p.erro) {
+        var erro = document.createElement("span");
+        erro.style.color = "var(--erro)";
+        erro.textContent = p.erro;
+        li.appendChild(erro);
+      }
+      ul.appendChild(li);
+    });
+  }
+
+  function prepararEnvio() {
+    return Promise.all([dbPromessa, userPromessa]).then(function (r) {
+      var db = r[0], user = r[1];
+      var aviso = document.getElementById("envio-indisponivel");
+      function indisponivel(texto) {
+        aviso.textContent = texto;
+        aviso.hidden = false;
+        document.getElementById("botao-enviar").disabled = true;
+      }
+      if (!db || !user) return indisponivel("Salvar e enviar arquivos só funciona abrindo este dashboard dentro do claude.ai.");
+      return user.id().then(function (uid) {
+        if (!uid) return indisponivel("Entre com sua conta da organização no claude.ai para salvar e enviar arquivos.");
+        envio.db = db;
+        envio.uid = uid;
+        aviso.hidden = true;
+        document.getElementById("botao-enviar").disabled = envio.enviando;
+        if (!envio.cancelarArquivos) {
+          envio.cancelarArquivos = db.collection("pedidos/" + uid + "/arquivos").onSnapshot(function (snap) {
+            envio.arquivos = snap.docs.map(function (d) {
+              var x = Object.assign({}, d.data());
+              x.id = d.id;
+              return x;
+            }).sort(function (a, b) { return String(b.salvoEm || "").localeCompare(String(a.salvoEm || "")); });
+            var existentes = {};
+            envio.arquivos.forEach(function (a) { existentes[a.id] = true; });
+            Object.keys(envio.selecionados).forEach(function (fid) { if (!existentes[fid]) delete envio.selecionados[fid]; });
+            renderizarBiblioteca();
+          }, function () { envio.cancelarArquivos = null; });
+        }
+        if (!envio.cancelarHistorico) {
+          envio.cancelarHistorico = db.collection("pedidos/" + uid + "/itens").onSnapshot(function (snap) {
+            envio.pedidos = snap.docs.map(function (d) { return d.data(); });
+            renderizarHistorico();
+          }, function () { envio.cancelarHistorico = null; });
+        }
+        renderizarBiblioteca();
+      });
+    });
+  }
+
+  function validarEmails(texto) {
+    var lista = texto.split(/[,;\s]+/).map(function (s) { return s.trim(); }).filter(Boolean);
+    var invalidos = lista.filter(function (e) { return !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e); });
+    return { lista: lista, invalidos: invalidos };
+  }
+
+  document.getElementById("form-envio").addEventListener("submit", function (e) {
+    e.preventDefault();
+    if (envio.enviando || envio.subindo) return;
+    if (!envio.db) { prepararEnvio(); return; }
+    var sel = selecionadosAtuais();
+    if (!sel.length) { mostrarMsgEnvio("Marque pelo menos um arquivo salvo (ou salve um novo).", "falha"); return; }
+    var bytes = sel.reduce(function (s, a) { return s + (a.bytes || 0); }, 0);
+    if (bytes > MAX_EMAIL_BYTES) { mostrarMsgEnvio("Os arquivos marcados passam de " + formatarTamanho(MAX_EMAIL_BYTES) + " — desmarque algum ou divida em dois e-mails.", "falha"); return; }
+    var emails = validarEmails(document.getElementById("envio-destinatarios").value);
+    if (!emails.lista.length) { mostrarMsgEnvio("Informe pelo menos um destinatário.", "falha"); return; }
+    if (emails.invalidos.length) { mostrarMsgEnvio("E-mail inválido: " + emails.invalidos.join(", "), "falha"); return; }
+    if (emails.lista.length > 20) { mostrarMsgEnvio("No máximo 20 destinatários por e-mail.", "falha"); return; }
+
+    envio.enviando = true;
+    document.getElementById("botao-enviar").disabled = true;
+    var criadoEm = new Date().toISOString();
+    var pedido = {
+      status: "pendente",
+      criadoEm: criadoEm,
+      cliente: estado.clienteAtivo || null,
+      destinatarios: emails.lista,
+      assunto: (document.getElementById("envio-assunto").value || "").slice(0, 200),
+      mensagem: (document.getElementById("envio-mensagem").value || "").slice(0, 4000),
+      arquivos: sel.map(function (a) { return { fid: a.id, nome: a.nome, bytes: a.bytes, partes: a.partes }; }),
+    };
+    envio.db.doc("pedidos/" + envio.uid + "/itens/" + novoId()).set(pedido).then(function () {
+      return envio.db.doc("pedidos/" + envio.uid).set({ ultimoPedidoEm: criadoEm });
+    }).then(function () {
+      envio.selecionados = {};
+      renderizarBiblioteca();
+      document.getElementById("envio-mensagem").value = "";
+      mostrarMsgEnvio("Na fila! O e-mail sai em até 10 minutos (das 7h às 19h) — acompanhe em \"Seus envios\". Os arquivos continuam salvos.", "ok");
+    }).catch(function (erro) {
+      var codigo = erro && erro.code;
+      mostrarMsgEnvio(codigo === "quota_exceeded" ? "A fila está cheia no momento — avise a responsável pelo dashboard."
+        : "Não foi possível colocar na fila: " + ((erro && erro.message) || "erro desconhecido") + ".", "falha");
+    }).then(function () {
+      envio.enviando = false;
+      document.getElementById("botao-enviar").disabled = false;
+    });
+  });
+
+  (function () {
+    var zona = document.getElementById("zona-arquivos");
+    var input = document.getElementById("input-arquivos");
+    input.addEventListener("change", function () { salvarArquivos(input.files); input.value = ""; });
+    zona.addEventListener("dragover", function (e) { e.preventDefault(); zona.classList.add("arrastando"); });
+    zona.addEventListener("dragleave", function () { zona.classList.remove("arrastando"); });
+    zona.addEventListener("drop", function (e) {
+      e.preventDefault();
+      zona.classList.remove("arrastando");
+      if (e.dataTransfer && e.dataTransfer.files) salvarArquivos(e.dataTransfer.files);
+    });
+  })();
+
+  document.getElementById("botao-envio").addEventListener("click", function () {
+    var painel = document.getElementById("painel-envio");
+    painel.hidden = !painel.hidden;
+    if (painel.hidden) return;
+    var assunto = document.getElementById("envio-assunto");
+    if (!assunto.value) assunto.value = "Relatórios ManagerVision" + (estado.clienteAtivo ? " — " + estado.clienteAtivo : "");
+    prepararEnvio();
+  });
+  document.getElementById("botao-fechar-envio").addEventListener("click", function () {
+    document.getElementById("painel-envio").hidden = true;
+  });
+
   // ---------- modal de geometria ----------
   function extrairAneis(geometria) {
     if (!geometria) return [];
@@ -693,5 +1388,6 @@
   estado.clienteAtivo = (DADOS.clientes.find(function (c) { return c.total; }) || DADOS.clientes[0] || {}).cliente || null;
   renderizarClientes();
   renderizarPagina();
+  renderizarRelatorios();
 })();
 </script>

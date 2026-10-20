@@ -24,6 +24,10 @@ from config import (
 
 GRAPH_SCOPE = ["https://graph.microsoft.com/.default"]
 
+# o registro de tipos do Windows nem sempre conhece estes
+mimetypes.add_type("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", ".xlsx")
+mimetypes.add_type("text/csv", ".csv")
+
 
 def _obter_token():
     if not (AZURE_TENANT_ID and AZURE_CLIENT_ID and AZURE_CLIENT_SECRET):
@@ -106,23 +110,3 @@ def enviar_email(caminho_arquivo, assunto=None, corpo=None, destinatarios=None):
 
     return _enviar_mensagem(assunto, corpo, destinatarios, anexos=caminhos)
 
-
-def enviar_email_texto(assunto=None, corpo=None, destinatarios=None):
-    """Envia um e-mail só de texto, sem anexo."""
-    return _enviar_mensagem(assunto, corpo, destinatarios)
-
-
-def _excel_mais_recente(pasta_saida="output"):
-    """Acha o último Excel de duplicidades gerado (maior timestamp no nome)."""
-    arquivos = sorted(Path(pasta_saida).glob("geometrias_duplicadas_*.xlsx"))
-    if not arquivos:
-        raise FileNotFoundError(
-            f"Nenhum Excel encontrado em {pasta_saida}/. Rode o pipeline (app.py) primeiro."
-        )
-    return arquivos[-1]
-
-
-if __name__ == "__main__":
-    arquivo = _excel_mais_recente()
-    enviar_email(arquivo)
-    print(f"E-mail enviado com sucesso ({arquivo.name}).")

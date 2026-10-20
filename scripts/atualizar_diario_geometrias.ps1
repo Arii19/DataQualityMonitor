@@ -38,14 +38,20 @@ $logFile = Join-Path $logDir ("atualizacao_geometrias_{0}.log" -f (Get-Date -For
 $prompt = @"
 /atualizar-geometrias todos os clientes
 
-Depois de terminar a extração e confirmar que cache/<cliente>.json foi
-regravado pros 9 clientes, rode em sequência:
+IMPORTANTE: isto é uma sessão headless, sem ninguém pra ler um resumo
+intermediário e dizer "continua". Depois que a skill acima terminar a
+extração e confirmar que cache/<cliente>.json foi regravado pros 9 clientes,
+NÃO finalize a resposta só com o resumo da extração — continue você mesmo,
+no mesmo turno, rodando em sequência (ainda faltam 2 passos):
   venv/Scripts/python scripts/build_dashboard.py
   venv/Scripts/python scripts/enviar_email_geometrias.py
 
-O segundo script manda um e-mail por cliente com o Excel de duplicados, cada
-um só pro(s) destinatário(s) daquele cliente — não é preciso fazer mais nada
-manualmente pra isso.
+O segundo script manda o e-mail de geometrias (consolidado num Excel só, aba
+por usina, pros clientes sem destinatário próprio em config.EMAIL_POR_CLIENTE
+— hoje isso é todo mundo; só sai separado se algum cliente ganhar lá um
+destinatário diferente) — não precisa fazer mais nada manualmente pra isso.
+
+Só considere a tarefa concluída depois de ver a saída desses dois comandos.
 
 Não tente publicar nem acessar a ferramenta Artifact — isso não roda nesta
 sessão headless, é feito manualmente depois, num terminal comum

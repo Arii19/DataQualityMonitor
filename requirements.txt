@@ -6,3 +6,5 @@ fastapi==0.141.1
 uvicorn[standard]==0.52.4
 msal==1.38.0
 requests==2.34.2
+playwright==1.62.0
+# depois de instalar, rode também: python -m playwright install chromium

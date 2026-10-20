@@ -14,18 +14,29 @@ Gera dist/dashboard.html, pronto pra publicar/republicar (sempre no mesmo link).
 
 import json
 import math
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
 from shapely.geometry import mapping, shape
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-CACHE_DIR = BASE_DIR / "cache"
+sys.path.insert(0, str(BASE_DIR))
+
+from smartbio_cache import CACHE_DIR, CLIENTES  # noqa: E402
+
+MANAGERVISION_CACHE_DIR = CACHE_DIR / "managervision"
 TEMPLATE_PATH = BASE_DIR / "scripts" / "dashboard_template.html"
 DIST_DIR = BASE_DIR / "dist"
 DIST_PATH = DIST_DIR / "dashboard.html"
 
-CLIENTES = ["Atvos", "SantaAdelia", "Cevasa", "CMAA", "Guaira", "GQQ", "JPA", "Cocal", "IPE"]
+# endereço de cada cliente, pra montar o link "Abrir" de um relatório
+# (<url>ManagerVision/Chart/<chart_id>) — a página usa isso também pra lista
+# que busca ao vivo no MCP Smartbio, então precisa existir mesmo pra cliente
+# sem relatório em cache.
+URL_ACESSO = {
+    cliente: f"https://{cliente.lower()}.smartbreeder.com.br/" for cliente in CLIENTES
+}
 
 # colunas mantidas no embed (Geometria1/2 é substituída pela versão simplificada)
 COLUNAS = [
@@ -59,6 +70,32 @@ def _simplificar(geometria_dict):
     return resultado
 
 
+def _carregar_relatorios():
+    """Lista de reserva dos relatórios ManagerVision (cache/managervision/,
+    gerado pela skill atualizar-relatorios-managervision), usada pela página
+    quando o visitante não tem o conector MCP Smartbio. Só metadado — os
+    relatórios abrem ao vivo no ManagerVision."""
+    relatorios, datas = {}, []
+    for cliente in CLIENTES:
+        caminho = MANAGERVISION_CACHE_DIR / f"{cliente}.json"
+        if not caminho.exists():
+            relatorios[cliente] = []
+            continue
+        bruto = json.loads(caminho.read_text(encoding="utf-8"))
+        if bruto.get("gerado_em"):
+            datas.append(bruto["gerado_em"])
+        relatorios[cliente] = [
+            {
+                "chart_id": item["chart_id"],
+                "titulo": item.get("titulo"),
+                "description": item.get("description"),
+                "url": f"{URL_ACESSO[cliente]}ManagerVision/Chart/{item['chart_id']}",
+            }
+            for item in bruto.get("itens", [])
+        ]
+    return relatorios, (min(datas) if datas else None)
+
+
 def montar_dados():
     clientes_meta = []
     pares_por_cliente = {}
@@ -85,10 +122,15 @@ def montar_dados():
             itens.append(linha)
         pares_por_cliente[cliente] = itens
 
+    relatorios, relatorios_gerado_em = _carregar_relatorios()
+
     return {
         "publicadoEm": datetime.now(timezone.utc).isoformat(),
         "clientes": clientes_meta,
         "pares": pares_por_cliente,
+        "urlAcesso": URL_ACESSO,
+        "relatorios": relatorios,
+        "relatoriosGeradoEm": relatorios_gerado_em,
     }
 
 

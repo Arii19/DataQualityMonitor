@@ -2,9 +2,12 @@
 .claude/
 output/*.html
 output/*.xlsx
+output/managervision_pdf/
+output/fila_relatorios/
 !output/.gitkeep
 raw/
 cache/*.json
+cache/managervision/*.json
 !cache/.gitkeep
 cache_backup_*/
 dist/
