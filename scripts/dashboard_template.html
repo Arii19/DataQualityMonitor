@@ -1237,7 +1237,7 @@
       arquivos: sel.map(function (a) { return { fid: a.id, nome: a.nome, bytes: a.bytes, partes: a.partes }; }),
     };
     envio.db.doc("pedidos/" + envio.uid + "/itens/" + novoId()).set(pedido).then(function () {
-      return envio.db.doc("pedidos/" + envio.uid).set({ ultimoPedidoEm: criadoEm });
+      return envio.db.doc("pedidos/" + envio.uid).set({ ultimoPedidoEm: criadoEm, pendente: true });
     }).then(function () {
       envio.selecionados = {};
       renderizarBiblioteca();
