@@ -1,0 +1,11 @@
+{
+  "_sobre": "Talhões cujo GeoJson (dbo.GeometriaGeoJson, o que o smartbio expõe) não bate com o DadosSHP do banco — o desenho que chega aqui é outro/antigo, então qualquer par com eles é falso. smartbio_cache.py descarta todo par que envolva um desses IDTalhao. Lista vem de Queries/geojson_desatualizado.sql (PctIgual < 70), rodada no banco do cliente. Tirar o ID daqui quando o GeoJson dele for regerado a partir do DadosSHP.",
+  "Ferrari": {
+    "conferido_em": "2026-11-11",
+    "IDTalhao": [
+      44935, 45406, 44941, 44953, 44954, 44956, 44957, 44997, 45000, 45001,
+      45375, 45387, 45409, 46324, 45082, 45084, 45086, 45069, 44821, 45036,
+      45038, 45041, 45047, 45048
+    ]
+  }
+}
