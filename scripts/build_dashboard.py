@@ -2,7 +2,7 @@
 pra publicação fora da rede local: como o artifact não acessa backend, todo
 o dado fica embutido no HTML como JSON. Geometrias são simplificadas
 (shapely.simplify + arredondamento) só pra esse embed, sem alterar o cache
-original — os 9 clientes somados passam de 30MB na resolução original e
+original — os 10 clientes somados passam de 30MB na resolução original e
 ficam por volta de 3MB simplificados, cabendo no limite de 16MB do artifact.
 
 Rodar depois de recomputar os caches (`python smartbio_cache.py`):

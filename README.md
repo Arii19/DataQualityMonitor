@@ -10,8 +10,8 @@ como link.
 
 ## Fonte de dado: smartbio via MCP
 
-Os 9 clientes da barra lateral (Atvos, SantaAdelia, Cevasa, CMAA, Guaira,
-GQQ, JPA, Cocal, IPE) só são consultáveis pelo smartbio, e o smartbio só é
+Os 10 clientes da barra lateral (Atvos, SantaAdelia, Cevasa, CMAA, Guaira,
+GQQ, JPA, Cocal, IPE, Ferrari) só são consultáveis pelo smartbio, e o smartbio só é
 acessível de dentro de uma sessão do Claude Code com o MCP configurado — o
 backend (`api.py`), rodando sozinho via uvicorn, não tem essa credencial.
 Por isso a atualização de dado é sempre pedida pro Claude, não clicada
@@ -30,7 +30,7 @@ direto na tela. `app.py` mantém só `classificar_motivo()`, usada por
    e salva o CSV bruto em `raw/<cliente>/`.
 2. **Cálculo** ([smartbio_cache.py](smartbio_cache.py)): lê esse CSV, roda a
    lógica de sobreposição de `calcular_sobreposicoes()` (GeoPandas: sjoin
-   espacial + área de interseção/união, só pares com mais de 1% de
+   espacial + área de interseção/união, só pares de talhões com IDTalhao diferente e mais de 0,20% de
    sobreposição real), classifica o motivo (`app.py.classificar_motivo()`)
    e grava o resultado em `cache/<cliente>.json` +
    `output/<cliente>_duplicados_<data>.xlsx` (só os 10 Excels mais recentes de
@@ -41,7 +41,7 @@ direto na tela. `app.py` mantém só `classificar_motivo()`, usada por
    (útil se o Claude acabou de gerar um cache novo enquanto a tela estava
    aberta).
 4. **Interface local** ([frontend/](frontend/)): React (Vite) — barra
-   lateral com os 9 clientes (total de pares e "gerado há Xh" de cada um),
+   lateral com os 10 clientes (total de pares e "gerado há Xh" de cada um),
    tabela com filtro, exportar Excel, enviar e-mail, painel de Relatórios
    ManagerVision (ver abaixo) e um modal que desenha as duas geometrias de
    um par sobreposto ao clicar na linha.
@@ -140,7 +140,7 @@ MANAGERVISION_PASSWORD=
 
 `EMAIL_RECIPIENTS` é o destinatário **padrão**, usado por qualquer cliente
 sem regra própria em `EMAIL_POR_CLIENTE` ([config.py](config.py) — hoje
-vazio, ou seja, os 9 clientes caem no padrão). Todo cliente que cai no
+vazio, ou seja, os 10 clientes caem no padrão). Todo cliente que cai no
 padrão vai **junto num e-mail só**, com um Excel de uma aba por usina (em vez
 de uma aba por cliente) — ver
 [scripts/enviar_email_geometrias.py](scripts/enviar_email_geometrias.py). Só
@@ -190,7 +190,7 @@ publicado como Claude Artifact — link fixo e privado, compartilhável.
   continua só na tela local.
 - Sem backend: todo o dado (metadados + geometria, simplificada só nesse
   artifact — `shapely.simplify` + arredondamento de coordenadas) fica
-  embutido no próprio HTML. Os 9 clientes somados ficam bem abaixo do limite
+  embutido no próprio HTML. Os 10 clientes somados ficam bem abaixo do limite
   de 16MB de um artifact.
 - `dist/dashboard.html` é **regenerado sozinho, 1x/dia (07:55)**, pela mesma
   tarefa agendada do Windows que faz a extração
@@ -210,13 +210,13 @@ publicado como Claude Artifact — link fixo e privado, compartilhável.
 ## API
 
 Toda rota abaixo de `/api/duplicados*` e `/api/pipeline/rodar` exige o
-parâmetro `cliente` (um dos 9 nomes da barra lateral). Nenhuma delas calcula
+parâmetro `cliente` (um dos 10 nomes da barra lateral). Nenhuma delas calcula
 nada — todas leem `cache/<cliente>.json`, que só é populado pelo
 `smartbio_cache.py` (via extração do Claude).
 
 | Método | Rota | Descrição |
 |---|---|---|
-| `GET` | `/api/clientes` | Lista os 9 clientes, com total de pares e data do cache de cada um |
+| `GET` | `/api/clientes` | Lista os 10 clientes, com total de pares e data do cache de cada um |
 | `POST` | `/api/pipeline/rodar?cliente=X` | Confirma que existe cache pra esse cliente e devolve a data em que foi gerado — não recalcula |
 | `GET` | `/api/duplicados?cliente=X` | Lista os pares calculados desse cliente (filtros: `fazenda`, `usina`, `safra`, `talhao`, `percentual_minimo`) |
 | `GET` | `/api/duplicados/{id}/geometria?cliente=X` | Geometria (GeoJSON) das duas talhões de um par, pra desenhar na tela |
@@ -225,7 +225,7 @@ nada — todas leem `cache/<cliente>.json`, que só é populado pelo
 | `GET` | `/api/relatorios?cliente=X` | Lista os relatórios ManagerVision em cache pra esse cliente (metadado só — `cache/managervision/<cliente>.json`, populado pela skill, não pela API) |
 | `GET` | `/api/relatorios/{chart_id}/pdf?cliente=X` | Loga no ManagerVision (Playwright, ao vivo) e devolve o PDF desse relatório — pode levar alguns segundos |
 | `POST` | `/api/relatorios/email?cliente=X&arquivos=Y&arquivos=Z` | Gera o PDF de cada relatório selecionado (Playwright, ao vivo) e manda todos anexados num único e-mail |
-| `POST` | `/api/relatorios/email-todos` | Botão "Enviar todos de todos os clientes" do painel. Gera o PDF de **todos** os relatórios em cache dos 9 clientes (ao vivo, um cliente por vez) e manda tudo num e-mail só pro destinatário padrão (`EMAIL_RECIPIENTS`) — pode levar vários minutos |
+| `POST` | `/api/relatorios/email-todos` | Botão "Enviar todos de todos os clientes" do painel. Gera o PDF de **todos** os relatórios em cache dos 10 clientes (ao vivo, um cliente por vez) e manda tudo num e-mail só pro destinatário padrão (`EMAIL_RECIPIENTS`) — pode levar vários minutos |
 
 Documentação interativa (Swagger) disponível em `http://localhost:8001/docs`
 com a API rodando.

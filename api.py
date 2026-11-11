@@ -42,7 +42,7 @@ MANAGERVISION_CACHE_DIR = CACHE_DIR / "managervision"
 # cache/<cliente>.json já decodificado, por cliente: (mtime_ns, dados). Só
 # relê do disco quando smartbio_cache.py grava um arquivo novo (mtime muda)
 # — antes cada requisição decodificava o JSON inteiro (Atvos tem ~10MB), e
-# /api/clientes fazia isso com os 9 só pra ler total/gerado_em.
+# /api/clientes fazia isso com os 10 só pra ler total/gerado_em.
 _CACHE_EM_MEMORIA: dict[str, tuple[int, dict]] = {}
 
 

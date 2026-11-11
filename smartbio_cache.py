@@ -31,7 +31,7 @@ RAW_DIR = BASE_DIR / "raw"
 CACHE_DIR = BASE_DIR / "cache"
 OUTPUT_DIR = BASE_DIR / "output"
 
-CLIENTES = ["Atvos", "SantaAdelia", "Cevasa", "CMAA", "Guaira", "GQQ", "JPA", "Cocal", "IPE"]
+CLIENTES = ["Atvos", "SantaAdelia", "Cevasa", "CMAA", "Guaira", "GQQ", "JPA", "Cocal", "IPE", "Ferrari"]
 
 # Histórico: vw_bree_full.Geometria não amarrava geometria por safra (ver
 # docs/especificacao_view_geometria_por_safra.md). Já houve aqui dois filtros
@@ -44,6 +44,10 @@ CLIENTES = ["Atvos", "SantaAdelia", "Cevasa", "CMAA", "Guaira", "GQQ", "JPA", "C
 # o consolidado do e-mail diário e o multi-cliente da tela) — os mais
 # antigos são apagados a cada nova geração, senão acumulam um por dia.
 MANTER_EXCELS = 10
+
+# corte de sobreposição geral (interseção / união, em %) — mesmo da query de
+# validação em banco (`PercentualSobreposicaoGeral > 0.20`).
+PERCENTUAL_MINIMO = 0.20
 
 
 # caracteres de controle que o Excel/openpyxl recusam em célula de texto —
@@ -198,11 +202,19 @@ def calcular_sobreposicoes(df, cliente):
     pares["PercentualSobreposto2"] = area_intersecao / area_2 * 100
     pares["PercentualSobreposicaoGeral"] = area_intersecao / area_uniao * 100
 
-    # equivale ao WHERE PercentualSobreposicaoGeral > ... do SQL antigo. NÃO faz .reset_index(drop=True)
-    # aqui: pares precisa manter os rótulos antigos de geom_1/geom_2 pro
-    # .loc[pares.index] logo abaixo — resetar já causou geometria trocada
-    # entre talhões (ver histórico).
-    pares = pares[pares["PercentualSobreposicaoGeral"] > 1.0]
+    # Critério de referência = query de validação em banco da equipe
+    # (HistDetalhado + GeometriaDeMapa, self-join #Geometrias):
+    #  - `g1.IDTalhao < g.IDTalhao`: só compara talhões de IDs DIFERENTES —
+    #    o mesmo IDTalhao com 2 registros ativos (2 safras) não vira par;
+    #  - `cast(... as decimal(10,2)) > 0.20`: % geral arredondado a 2 casas,
+    #    acima de 0,20%.
+    # NÃO faz .reset_index(drop=True) aqui: pares precisa manter os rótulos
+    # antigos de geom_1/geom_2 pro .loc[pares.index] logo abaixo — resetar já
+    # causou geometria trocada entre talhões (ver histórico).
+    pares = pares[
+        (pares["IDTalhao_1"] != pares["IDTalhao_2"])
+        & (pares["PercentualSobreposicaoGeral"].round(2) > PERCENTUAL_MINIMO)
+    ]
 
     # lista, não .apply numa GeoSeries: senão o geopandas confunde o dict
     # com geometria de verdade e quebra o to_json() depois

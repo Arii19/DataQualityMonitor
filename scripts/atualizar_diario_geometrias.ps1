@@ -1,4 +1,4 @@
-﻿# Roda a extração diária de geometrias duplicadas (9 clientes) via Claude
+﻿# Roda a extração diária de geometrias duplicadas (10 clientes) via Claude
 # Code headless (skill atualizar-geometrias), regenera dist/dashboard.html e
 # manda o e-mail automático de geometrias por cliente (Excel de duplicados,
 # só pro(s) destinatário(s) daquele cliente — config.EMAIL_POR_CLIENTE).
@@ -40,7 +40,7 @@ $prompt = @"
 
 IMPORTANTE: isto é uma sessão headless, sem ninguém pra ler um resumo
 intermediário e dizer "continua". Depois que a skill acima terminar a
-extração e confirmar que cache/<cliente>.json foi regravado pros 9 clientes,
+extração e confirmar que cache/<cliente>.json foi regravado pros 10 clientes,
 NÃO finalize a resposta só com o resumo da extração — continue você mesmo,
 no mesmo turno, rodando em sequência (ainda faltam 2 passos):
   venv/Scripts/python scripts/build_dashboard.py
